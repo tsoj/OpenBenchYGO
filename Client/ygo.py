@@ -225,6 +225,18 @@ def runner_command(workload, dev_name, base_name, scale_factor, book_path, recor
         '-c', str(workload['distribution']['concurrency-per']),
         '--records', records_path] + flags
 
+def die_with_parent():
+
+    # (in the arbiter's process before it starts: Linux kills it when the Client dies,
+    # and its bots end with it; elsewhere nothing)
+
+    try:
+        import ctypes, signal
+        PR_SET_PDEATHSIG = 1
+        ctypes.CDLL(None, use_errno=True).prctl(PR_SET_PDEATHSIG, signal.SIGKILL)
+    except (OSError, AttributeError):
+        pass
+
 def runner_env(base_name):
     return dict(os.environ, YGO_ROOT=engine_tree(base_name))
 

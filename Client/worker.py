@@ -1280,7 +1280,7 @@ def build_runner_command(config, dev_cmd, base_cmd, scale_factor, timestamp, run
 def run_and_parse_runner(config, command, env, runner_idx, results_queue, abort_flag, processes, errors):
 
     print('\n[#%d] Launching match runner...\n%s\n' % (runner_idx, shlex.join(command)))
-    runner = Popen(command, env=env, stdout=PIPE, stderr=STDOUT, start_new_session=True)
+    runner = Popen(command, env=env, stdout=PIPE, stderr=STDOUT, start_new_session=True, preexec_fn=ygo.die_with_parent)
     processes.append(runner)
 
     # The arbiter's totals so far; each report is the change since the last one
