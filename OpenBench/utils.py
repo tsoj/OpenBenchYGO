@@ -50,6 +50,7 @@ import OpenBench.model_utils
 class TimeControl(object):
 
     FIXED_NODES = 'FIXED-NODES' # N= or nodes=
+    NPS_NODES   = 'NPS-NODES'   # NPS= : base N nodes, dev N times its nodes/s ratio (ygo-arbiter --nps-nodes)
     FIXED_DEPTH = 'FIXED-DEPTH' # D= or depth=
     FIXED_TIME  = 'FIXED-TIME'  # MT= or movetime=
     CYCLIC      = 'CYCLIC'      # X/Y or X/Y+Z
@@ -60,13 +61,14 @@ class TimeControl(object):
 
         # Display Nodes as N=, Depth as D=, MoveTime as MT=
         conversion = {
+            'NPS': 'NPS',
             'N'  :  'N', 'nodes'    :  'N',
             'D'  :  'D', 'depth'    :  'D',
             'MT' : 'MT', 'movetime' : 'MT',
         }
 
         # Searching for "nodes=", "depth=", and "movetime=" time controls
-        pattern = r'(?P<mode>((N)|(D)|(MT)|(nodes)|(depth)|(movetime)))=(?P<value>(\d+))'
+        pattern = r'(?P<mode>((NPS)|(N)|(D)|(MT)|(nodes)|(depth)|(movetime)))=(?P<value>(\d+))'
         if results := re.search(pattern, time_str.upper()):
             mode, value = results.group('mode', 'value')
             return '%s=%s' % (conversion[mode], value)
@@ -94,6 +96,9 @@ class TimeControl(object):
     def control_type(time_str):
 
         # Return one of the types defined at the top of TimeControl
+
+        if time_str.startswith('NPS='):
+            return TimeControl.NPS_NODES
 
         if time_str.startswith('N='):
             return TimeControl.FIXED_NODES

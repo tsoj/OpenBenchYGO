@@ -400,7 +400,9 @@ def search(request):
     TC      = OpenBench.utils.TimeControl
     tc_type = params.get('tc-type', '')
 
-    if tc_type == TC.FIXED_NODES:
+    if tc_type == TC.NPS_NODES:
+        tests = tests.filter(dev_time_control__startswith='NPS=')
+    elif tc_type == TC.FIXED_NODES:
         tests = tests.filter(dev_time_control__startswith='N=')
     elif tc_type == TC.FIXED_DEPTH:
         tests = tests.filter(dev_time_control__startswith='D=')
@@ -1084,7 +1086,7 @@ def api_pgns(request, pgn_id):
         return api_response({ 'error' : 'Still processing individual PGNs into the archive. Try again shortly' })
 
     # Craft the download HTML response
-    return OpenBench.utils.media_download_response(pgn_path, '%d.pgn.tar' % (pgn_id), -1)
+    return OpenBench.utils.media_download_response(pgn_path, '%d.records.tar' % (pgn_id), -1)
 
 @csrf_exempt
 def api_spsa(request, workload_id, query):

@@ -53,7 +53,7 @@
                 <tr><td class="td-label">Opening Book</td><td><a>{{workload.book_name}}</a></td></tr>
             {% endif %}
 
-            <tr><td class="td-label">Upload PGNs</td><td>{{workload.upload_pgns}}</td></tr>
+            <tr><td class="td-label">Upload Records</td><td>{{workload.upload_pgns}}</td></tr>
             <tr><td class="td-label">Syzygy WDL</td><td>{{workload.syzygy_wdl}}</td></tr>
             <tr><td class="td-label">Syzygy ADJ.</td><td>{{workload.syzygy_adj}}</td></tr>
             <tr><td class="td-label">Win ADJ.</td><td>{{workload.win_adj}}</td></tr>
@@ -135,7 +135,7 @@
         <!-- PGN Download Button -->
         {% if workload.upload_pgns != "FALSE" %}
             <div class="anchor-container">
-                <a class="mt-1 anchorbutton btn-blue" href="/api/pgns/{{workload.id}}/">Download PGN Archive</a>
+                <a class="mt-1 anchorbutton btn-blue" href="/api/pgns/{{workload.id}}/">Download Records Archive</a>
             </div>
         {% endif %}
 

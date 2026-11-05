@@ -345,7 +345,8 @@ class PGN(Model):
         return self.filename()
 
     def filename(self):
-        return '%s.%s.%s.pgn.bz2' % (self.test_id, self.result_id, self.book_index)
+        # (ygo-arbiter records, one JSON line per game, bz2-compressed)
+        return '%s.%s.%s.records.jsonl.bz2' % (self.test_id, self.result_id, self.book_index)
 
 class SPSARun(Model):
 

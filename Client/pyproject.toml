@@ -1,0 +1,14 @@
+[project]
+name = "openbench-ygo-client"
+version = "0.1.0"
+description = "OpenBench client for Yu-Gi-Oh! bots (uv run client.py ...)"
+requires-python = ">=3.10"
+dependencies = [
+    "requests",
+    "psutil>=5.9.5",
+    "py-cpuinfo>=9.0.0",
+    "zstandard>=0.23.0",
+]
+
+[tool.uv]
+package = false

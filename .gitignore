@@ -11,6 +11,8 @@ Scripts/Networks/*
 Media/*
 
 !Client/*.py
+!Client/pyproject.toml
+!Client/uv.lock
 !Client/cutechess-ob
 !Client/cutechess-ob.exe
 
@@ -19,4 +21,7 @@ Media/Networks/*
 Media/Events/*
 
 *.lock
+!uv.lock
+!Client/uv.lock
 *.epd
+.venv/

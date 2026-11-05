@@ -1,4 +1,0 @@
-requests
-psutil>=5.9.5
-py-cpuinfo>=9.0.0
-zstandard>=0.23.0

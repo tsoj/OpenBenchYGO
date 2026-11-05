@@ -52,6 +52,7 @@ import genfens
 import isa_detector
 import pgn_util
 import utils
+import ygo
 
 ## Local imports from client are an exception
 
@@ -125,16 +126,10 @@ class Configuration:
         # Verify that we have make installed
         print('\nLooking for Make... [v%s]' % locate_utility('make'))
 
-        # Look for either g++ or clang++
-        gcc_ver       = locate_utility('g++', force_exit=False, report_error=False)
-        clang_ver     = locate_utility('clang++', force_exit=False, report_error=False)
-        self.cxx_comp = 'g++' if gcc_ver else 'clang++' if clang_ver else None
-        print('Looking for C++ Compiler... [%s v%s]' % (self.cxx_comp, locate_utility(self.cxx_comp)))
-
-        # Cannot build fastchess nor observe CPU flags
-        if not self.cxx_comp:
-            print ('[Error] Unable to locate C++ Compiler (g++ or clang++)')
-            sys.exit()
+        # The bots and ygo-arbiter are Rust, built profile-guided (see ygo.py)
+        print('Looking for Cargo... [v%s]' % locate_utility('cargo'))
+        print('Looking for llvm-profdata... [v%s]' % locate_utility('llvm-profdata'))
+        self.cxx_comp = None
 
     def init_client(self):
 
@@ -582,16 +577,17 @@ class MatchRunner:
         del results['games'][second]
 
     @staticmethod
-    def kill_everything(dev_process, base_process):
+    def kill_everything(processes):
 
-        if IS_LINUX:
-            utils.kill_process_by_name('fastchess-ob')
+        # Each runner is a session of its own: the arbiter and its bots
+        for process in processes:
+            if process.poll() is None:
+                try: os.killpg(process.pid, 9)
+                except ProcessLookupError: pass
 
-        if IS_WINDOWS:
-            utils.kill_process_by_name('fastchess-ob.exe')
-
-        utils.kill_process_by_name(dev_process)
-        utils.kill_process_by_name(base_process)
+    @staticmethod
+    def records_name(config, timestamp, runner_idx):
+        return MatchRunner.pgn_name(config, timestamp, runner_idx).replace('.pgn', '.jsonl')
 
     @staticmethod
     def pgn_name(config, timestamp, runner_idx):
@@ -804,8 +800,11 @@ def cleanup_client():
             os.remove(os.path.join('PGNs', file))
 
     for file in os.listdir('Engines'):
-        if file_age(os.path.join('Engines', file)) > SECONDS_PER_DAY:
-            os.remove(os.path.join('Engines', file))
+        path = os.path.join('Engines', file)
+        if file in ('target', 'submodules') or file_age(path) <= SECONDS_PER_DAY:
+            continue
+        if os.path.isdir(path): shutil.rmtree(path)
+        else: os.remove(path)
 
     for file in os.listdir('Networks'):
         if file_age(os.path.join('Networks', file)) > SECONDS_PER_WEEK:
@@ -939,7 +938,8 @@ def determine_scale_factor(config, dev_name, base_name):
 ## connection and then make simple requests to retrieve Workloads as json objects
 
 def server_configure_fastchess(config):
-    server_configure_match_runner(config, 'fastchess', build_fastchess_in_dir)
+    # (no fastchess: the match runner is the base engine's ygo-arbiter, see ygo.py)
+    config.fastchess_ver = 'ygo-arbiter'
 
 def server_configure_match_runner(config, name, build_func):
 
@@ -1148,35 +1148,38 @@ def complete_workload(config):
         timestamp  = time.time()
         results    = multiprocessing.Queue()
         abort_flag = threading.Event()
+        processes  = [] # (each runner's ygo-arbiter, killed with its bots)
+        errors     = [] # (the arbiter's "error:" lines)
 
         tasks = [] # Create each of the match runner workers
         for x in range(runner_cnt):
             cmd = build_runner_command(config, dev_name, base_name, scale_factor, timestamp, x)
-            tasks.append(executor.submit(run_and_parse_runner, config, cmd, x, results, abort_flag))
+            env = ygo.runner_env(base_name)
+            tasks.append(executor.submit(run_and_parse_runner, config, cmd, env, x, results, abort_flag, processes, errors))
 
         # Process the Queue until we exit, finish, or are told to stop by the server
         try:
             rr = ResultsReporter(config, tasks, results, abort_flag)
             rr.process_until_finished()
-            rr.send_errors(timestamp, runner_cnt)
-            MatchRunner.kill_everything(dev_name, base_name)
+            for error in errors:
+                ServerReporter.report_engine_error(config, error)
+            MatchRunner.kill_everything(processes)
 
         # Kill everything during an Exception, but print it
         except (Exception, KeyboardInterrupt):
             abort_flag.set()
-            MatchRunner.kill_everything(dev_name, base_name)
+            MatchRunner.kill_everything(processes)
             raise
 
-        pgn_files = [MatchRunner.pgn_name(config, timestamp, x) for x in range(runner_cnt)]
+        records = [MatchRunner.records_name(config, timestamp, x) for x in range(runner_cnt)]
 
         # Submit NPS stats
         if config.workload['test']['type'] in ('SPRT', 'GAMES'):
-            ServerReporter.report_nps_stats(config, pgn_util.collect_nps_stats(pgn_files, scale_factor))
+            ServerReporter.report_nps_stats(config, ygo.nps_stats(records, scale_factor))
 
-        # Upload the PGN if requested
+        # Upload the records (instead of PGNs) if requested
         if config.workload['test']['upload_pgns'] != 'FALSE':
-            compact = config.workload['test']['upload_pgns'] == 'COMPACT'
-            ServerReporter.report_pgn(config, pgn_util.compress_pgn_files(pgn_files, scale_factor, compact))
+            ServerReporter.report_pgn(config, ygo.compress_records(records))
 
 def safe_download_network_weights(config, branch):
 
@@ -1210,11 +1213,8 @@ def safe_download_engine(config, branch, net_path):
     bin_name = utils.engine_binary_name(engine, commit_sha, net_path)
     out_path = os.path.join('Engines', bin_name)
 
-    make_path = config.workload['test'][branch]['build']['path']
-    compiler  = config.compilers[engine][0]
-
     try:
-        return utils.prepare_engine(engine, net_path, branch_name, source, make_path, out_path, private, compiler)
+        return ygo.prepare_engine(engine, branch_name, source, out_path, private)
 
     except utils.OpenBenchBuildFailedException as error:
 
@@ -1268,67 +1268,62 @@ def safe_run_benchmarks(config, branch, engine):
 
 def build_runner_command(config, dev_cmd, base_cmd, scale_factor, timestamp, runner_idx):
 
-    flags  = ' ' + MatchRunner.basic_settings(config)
-    flags += ' ' + MatchRunner.concurrency_settings(config)
-    flags += ' ' + MatchRunner.adjudication_settings(config)
-    flags += ' ' + MatchRunner.engine_settings(config, dev_cmd, 'dev', scale_factor, runner_idx)
-    flags += ' ' + MatchRunner.engine_settings(config, base_cmd, 'base', scale_factor, runner_idx)
-    flags += ' ' + MatchRunner.book_settings(config, runner_idx)
-    flags += ' ' + MatchRunner.pgnout_settings(config, timestamp, runner_idx)
+    # This runner's slice of the book: OpenBench's book index, then the earlier runners' openings
+    rounds = config.workload['distribution']['rounds-per-runner']
+    start  = config.workload['test']['book_index'] + runner_idx * rounds
+    book   = MatchRunner.records_name(config, timestamp, runner_idx).replace('.jsonl', '.book.jsonl')
+    ygo.book_slice(config.workload['test']['book']['name'], config.workload['test']['book_seed'], start, rounds, book)
 
-    return MatchRunner.executable(config) + flags
+    records = MatchRunner.records_name(config, timestamp, runner_idx)
+    return ygo.runner_command(config.workload, dev_cmd, base_cmd, scale_factor, book, records)
 
-def run_and_parse_runner(config, command, runner_idx, results_queue, abort_flag):
+def run_and_parse_runner(config, command, env, runner_idx, results_queue, abort_flag, processes, errors):
 
-    print('\n[#%d] Launching match runner...\n%s\n' % (runner_idx, command))
-    runner = Popen(shlex.split(command), stdout=PIPE)
+    print('\n[#%d] Launching match runner...\n%s\n' % (runner_idx, shlex.join(command)))
+    runner = Popen(command, env=env, stdout=PIPE, stderr=STDOUT, start_new_session=True)
+    processes.append(runner)
 
-    results = {
-
-        'trinomial'   : [0, 0, 0],       # LDW
-        'pentanomial' : [0, 0, 0, 0, 0], # LL DL DD DW WW
-        'games'       : {},              # game_id : result_str
-
-        'crashes'     : 0,               # " disconnect" or "connection stalls"
-        'timelosses'  : 0,               # " loses on time "
-        'illegals'    : 0,               # " illegal move "
-    }
+    # The arbiter's totals so far; each report is the change since the last one
+    reported = { 'trinomial' : [0, 0, 0], 'pentanomial' : [0, 0, 0, 0, 0] }
 
     while True:
 
         # Read each line of output until the pipe closes and we get "" back
-        line = runner.stdout.readline().strip().decode('ascii')
+        line = runner.stdout.readline().decode('utf-8', errors='replace').strip()
         if not line:
             break
 
         if abort_flag.is_set():
             break
 
-        if 'Started game' not in line and 'Score of' not in line:
-            print('[#%d] %s' % (runner_idx, line))
+        print('[#%d] %s' % (runner_idx, line))
 
-        if 'Finished game' in line:
-            MatchRunner.update_results(results, line)
-
-        # Add to the results queue every time we have a game-pair finished
-        if any(results['pentanomial']):
-
-            # Place the results into the Queue, and be sure to copy the lists
+        # A failed opening (a crash, an illegal response, a broken bot)
+        if line.startswith('error:'):
+            errors.append('[#%d] %s' % (runner_idx, line))
             results_queue.put({
-                'trinomial'     : list(results['trinomial']),
-                'pentanomial'   : list(results['pentanomial']),
-                'crashes'       : results['crashes'],
-                'timelosses'    : results['timelosses'],
-                'illegals'      : results['illegals'],
-                'runner_idx'    : runner_idx,
+                'trinomial' : [0, 0, 0], 'pentanomial' : [0, 0, 0, 0, 0],
+                'crashes' : 1, 'timelosses' : 0, 'illegals' : 0, 'runner_idx' : runner_idx,
             })
 
-            # Clear out all the results, so we can start collecting a new set
-            results['trinomial'  ] = [0, 0, 0]
-            results['pentanomial'] = [0, 0, 0, 0, 0]
-            results['crashes'    ] = 0
-            results['timelosses' ] = 0
-            results['illegals'   ] = 0
+        if not (totals := ygo.parse_progress(line)):
+            continue
+
+        trinomial, pentanomial = totals
+        delta_tri   = [a - b for a, b in zip(trinomial, reported['trinomial'])]
+        delta_penta = [a - b for a, b in zip(pentanomial, reported['pentanomial'])]
+        reported    = { 'trinomial' : trinomial, 'pentanomial' : pentanomial }
+
+        # Add to the results queue every time game-pairs finished
+        if any(delta_penta):
+            results_queue.put({
+                'trinomial'     : delta_tri,
+                'pentanomial'   : delta_penta,
+                'crashes'       : 0,
+                'timelosses'    : 0,
+                'illegals'      : 0,
+                'runner_idx'    : runner_idx,
+            })
 
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 #                                                                           #
@@ -1343,12 +1338,14 @@ def reload_local_imports():
     import isa_detector
     import pgn_util
     import utils
+    import ygo
 
     importlib.reload(bench)
     importlib.reload(genfens)
     importlib.reload(isa_detector)
     importlib.reload(pgn_util)
     importlib.reload(utils)
+    importlib.reload(ygo)
 
 def parse_arguments(client_args):
 
@@ -1403,9 +1400,6 @@ def run_openbench_worker(client_args):
 
     try_forever(server_configure_fastchess, [config], fastchess_error)
     try_forever(server_configure_worker, [config], setup_error)
-
-    if IS_LINUX:
-        set_runner_permissions()
 
     # Cleanup in case openbench.exit still exists
     if os.path.isfile('openbench.exit'):
