@@ -141,3 +141,11 @@ USE_TZ = True
 STATIC_URL = '/static/'
 # (manage.py collectstatic copies the static files here: the proxy serves them when DEBUG is off)
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Errors of requests (500) with their tracebacks to stderr: the journal of a public server
+LOGGING = {
+    'version'                  : 1,
+    'disable_existing_loggers' : False,
+    'handlers'                 : { 'console' : { 'class' : 'logging.StreamHandler' } },
+    'loggers'                  : { 'django.request' : { 'handlers' : ['console'], 'level' : 'ERROR' } },
+}
