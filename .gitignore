@@ -25,3 +25,4 @@ Media/Events/*
 !Client/uv.lock
 *.epd
 .venv/
+staticfiles/
