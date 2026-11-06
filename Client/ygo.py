@@ -24,6 +24,12 @@
 #     zipballs have none), built with its Makefile (make EXE=bot; make arbiter). The
 #     binary in Engines/ is a wrapper that runs the tree's bot with YGO_ROOT=<tree>,
 #     so that "./Engines/<name> bench" works as for a UCI engine.
+#   - Builds are incremental: each commit is built in the same folder (Engines/src,
+#     unchanged files keep their times) with one cargo target directory, so cargo
+#     builds only the changed crates. The PGO profile is made once per ygopro-core-rust
+#     commit; ygo-arbiter is built once per ygopro-core-rust commit.
+#   - Both bots and the arbiter use the same ygopro-core-rust commit; a test with two
+#     commits fails to build, unless an engine's options have AllowCoreMismatch=true.
 #   - The match runner is ygo-arbiter (the base engine's), not fastchess. An opening
 #     is played twice, the seats swapped: a game pair. The arbiter prints its
 #     cumulative pentanomial after each pair; the Client reports the differences.
@@ -31,6 +37,7 @@
 #   - Instead of PGNs, the arbiter's records (one JSON line per game).
 
 import bz2
+import filecmp
 import json
 import os
 import random
@@ -57,6 +64,12 @@ PROGRESS = re.compile(
 NODES_TC = '60+1'
 
 TIMEOUT_HTTP = 30
+
+# The submodule with the game engine and the arbiter; the tree's file of its submodules' commits
+CORE, SUBMODULES_FILE = 'ygopro-core-rust', 'submodules.json'
+
+# An engine option that allows dev and base on different ygopro-core-rust commits
+ALLOW_CORE_MISMATCH = 'AllowCoreMismatch=true'
 
 def github_repo(url):
 
@@ -108,8 +121,10 @@ def submodules(tree):
 def fetch_submodules(tree, repo, sha, cache, headers=None):
 
     # Each submodule at the commit the tree's commit names (Github's contents API), from a
-    # cache of extracted archives (Engines/submodules/<owner>-<repo>-<sha>), recursively
+    # cache of extracted archives (Engines/submodules/<owner>-<repo>-<sha>), recursively.
+    # Returns { path : commit } of the tree's own submodules.
 
+    commits = {}
     for path, url in submodules(tree):
 
         api  = 'https://api.github.com/repos/%s/contents/%s?ref=%s' % (repo, path, sha)
@@ -118,6 +133,7 @@ def fetch_submodules(tree, repo, sha, cache, headers=None):
             raise utils.OpenBenchBuildFailedException('Submodule not found', '%s: %s' % (path, data))
 
         sub_repo, sub_sha = github_repo(data.get('submodule_git_url') or url), data['sha']
+        commits[path] = sub_sha
         cached = os.path.join(cache, '%s-%s' % (sub_repo.replace('/', '-'), sub_sha))
 
         if not os.path.exists(cached):
@@ -131,6 +147,51 @@ def fetch_submodules(tree, repo, sha, cache, headers=None):
             os.rmdir(target) # (an empty folder in the zipball)
         shutil.copytree(cached, target, symlinks=True)
 
+    return commits
+
+def sync_tree(src, dst):
+
+    # dst becomes a copy of src. Files of the same content are not written (their times stay,
+    # cargo does not build them again); new and changed files get the current time.
+
+    def remove(path):
+        if os.path.isdir(path) and not os.path.islink(path):
+            shutil.rmtree(path)
+        elif os.path.lexists(path):
+            os.remove(path)
+
+    os.makedirs(dst, exist_ok=True)
+    for root, dirs, files in os.walk(src):
+        rel = os.path.relpath(root, src)
+        for name in dirs + files:
+            s, d = os.path.join(root, name), os.path.join(dst, rel, name)
+            if os.path.islink(s):
+                if not (os.path.islink(d) and os.readlink(d) == os.readlink(s)):
+                    remove(d)
+                    os.symlink(os.readlink(s), d)
+            elif os.path.isdir(s):
+                if os.path.islink(d) or (os.path.lexists(d) and not os.path.isdir(d)):
+                    remove(d)
+                os.makedirs(d, exist_ok=True)
+            elif not (os.path.isfile(d) and not os.path.islink(d) and filecmp.cmp(s, d, shallow=False)):
+                remove(d)
+                shutil.copyfile(s, d)
+                shutil.copymode(s, d)
+
+    # (bottom-up: what src does not have)
+    for root, dirs, files in os.walk(dst, topdown=False):
+        rel = os.path.relpath(root, dst)
+        for name in dirs + files:
+            if not os.path.lexists(os.path.join(src, rel, name)):
+                remove(os.path.join(root, name))
+
+def core_commit(name):
+    with open(os.path.join(engine_tree(name), SUBMODULES_FILE)) as fin:
+        return json.load(fin)[CORE]
+
+def arbiter_path(core):
+    return os.path.abspath(os.path.join('Engines', 'ygo-arbiter-%s' % core))
+
 def wrapper_script(tree):
 
     # The binary OpenBench sees: the tree's bot with YGO_ROOT=<tree>
@@ -140,32 +201,48 @@ def prepare_engine(engine, branch, source, out_path, private):
 
     # The engine's tree at <out_path>.root, built; out_path the wrapper. Returns its name.
 
-    if os.path.isfile(out_path):
+    tree    = os.path.abspath(out_path + '.root')
+    engines = os.path.dirname(os.path.abspath(out_path))
+
+    if os.path.isfile(out_path) and os.path.isfile(os.path.join(tree, SUBMODULES_FILE)):
         print('Found [%s-%s]' % (engine, branch))
         return os.path.basename(out_path)
 
     headers = utils.read_git_credentials(engine) if private else None
     repo    = github_repo(source)
     sha     = source.rstrip('/').split('/')[-1]
-    tree    = os.path.abspath(out_path + '.root')
-    engines = os.path.dirname(os.path.abspath(out_path))
 
     print('Building [%s-%s]' % (engine, branch))
     if os.path.exists(tree):
         shutil.rmtree(tree)
 
     download_zip(source, tree, headers)
-    fetch_submodules(tree, repo, sha, os.path.join(engines, 'submodules'), headers)
+    commits = fetch_submodules(tree, repo, sha, os.path.join(engines, 'submodules'), headers)
+    if CORE not in commits:
+        raise utils.OpenBenchBuildFailedException('No submodule %s' % CORE, str(commits))
 
-    # One cargo target directory for every build (incremental between commits)
-    env = dict(os.environ, CARGO_TARGET_DIR=os.path.join(engines, 'target'))
+    # One build folder and one cargo target directory for every build (incremental between commits)
+    src = os.path.join(engines, 'src')
+    sync_tree(tree, src)
+    target  = os.path.join(engines, 'target')
+    env     = dict(os.environ, CARGO_TARGET_DIR=target)
+    profile = os.path.join(target, 'pgo', 'core-%s' % commits[CORE])
+    arbiter = arbiter_path(commits[CORE])
+
+    builds = [['make', '-j', 'EXE=%s' % os.path.join(tree, 'bot'), 'PROFILE=%s' % profile]]
+    if not os.path.isfile(arbiter):
+        builds.append(['make', 'arbiter', 'ARBITER=%s' % arbiter])
+
     output = ''
-    for target in (['make', '-j', 'EXE=%s' % os.path.join(tree, 'bot')],
-                   ['make', 'arbiter', 'ARBITER=%s' % os.path.join(tree, 'ygo-arbiter')]):
-        process = subprocess.run(target, cwd=tree, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    for command in builds:
+        process = subprocess.run(command, cwd=src, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
         output += process.stdout.decode('utf-8', errors='replace')
         if process.returncode:
             raise utils.OpenBenchBuildFailedException('Error during compilation', output)
+
+    # (last: a tree with this file is complete)
+    with open(os.path.join(tree, SUBMODULES_FILE), 'w') as fout:
+        json.dump(commits, fout)
 
     with open(out_path, 'w') as fout:
         fout.write(wrapper_script(tree))
@@ -216,7 +293,7 @@ def runner_command(workload, dev_name, base_name, scale_factor, book_path, recor
         raise utils.OpenBenchFatalWorkerException('ygo-arbiter plays both engines with one time control')
 
     flags, env = search_settings(test['dev']['time_control'], scale_factor)
-    arbiter    = os.path.join(engine_tree(base_name), 'ygo-arbiter')
+    arbiter    = arbiter_path(core_commit(base_name))
 
     return [arbiter,
         '--bot', '%s=%s' % (DEV , bot_command(dev_name , env)),
@@ -239,6 +316,17 @@ def die_with_parent():
 
 def runner_env(base_name):
     return dict(os.environ, YGO_ROOT=engine_tree(base_name))
+
+def check_core(workload, dev_name, base_name):
+
+    # Raises OpenBenchBuildFailedException if dev and base have different ygopro-core-rust
+    # commits (the base's arbiter plays both) and no engine's options allow it
+
+    dev, base = core_commit(dev_name), core_commit(base_name)
+    options   = [workload['test'][branch]['options'].split() for branch in ('dev', 'base')]
+    if dev != base and not any(ALLOW_CORE_MISMATCH in o for o in options):
+        raise utils.OpenBenchBuildFailedException('Different %s commits' % CORE,
+            'dev %s, base %s (engine option %s to allow it)' % (dev, base, ALLOW_CORE_MISMATCH))
 
 def parse_progress(line):
 

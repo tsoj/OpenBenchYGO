@@ -1125,6 +1125,9 @@ def complete_workload(config):
     dev_name  = safe_download_engine(config, 'dev' , dev_network )
     base_name = safe_download_engine(config, 'base', base_network)
 
+    # Both bots on the arbiter's ygopro-core-rust commit
+    safe_check_core(config, dev_name, base_name)
+
     # Datagen creates a book on-the-fly
     if config.workload['test']['type'] == 'DATAGEN':
         safe_create_genfens_opening_book(config, dev_name)
@@ -1217,14 +1220,31 @@ def safe_download_engine(config, branch, net_path):
         return ygo.prepare_engine(engine, branch_name, source, out_path, private)
 
     except utils.OpenBenchBuildFailedException as error:
+        report_build_fail(config, branch, error)
+        raise
 
-        print ('Failed to build %s-%s...\n\nCompiler Output:' % (engine, branch_name))
-        for line in error.logs.split('\n'):
-            print ('> %s' % (line))
-        print ()
+def report_build_fail(config, branch, error):
 
-        config.blacklist.append(config.workload['test']['id'])
-        ServerReporter.report_build_fail(config, branch, error.logs)
+    engine      = config.workload['test'][branch]['engine']
+    branch_name = config.workload['test'][branch]['name']
+
+    print ('Failed to build %s-%s...\n\nCompiler Output:' % (engine, branch_name))
+    for line in error.logs.split('\n'):
+        print ('> %s' % (line))
+    print ()
+
+    config.blacklist.append(config.workload['test']['id'])
+    ServerReporter.report_build_fail(config, branch, error.logs)
+
+def safe_check_core(config, dev_name, base_name):
+
+    # Wraps ygo.py:check_core(): the test fails as a build of dev
+
+    try:
+        ygo.check_core(config.workload, dev_name, base_name)
+
+    except utils.OpenBenchBuildFailedException as error:
+        report_build_fail(config, 'dev', error)
         raise
 
 def safe_create_genfens_opening_book(config, dev_name):
