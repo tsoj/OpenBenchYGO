@@ -185,6 +185,12 @@ def sync_tree(src, dst):
             if not os.path.lexists(os.path.join(src, rel, name)):
                 remove(os.path.join(root, name))
 
+def kept_in_engines(name):
+
+    # The files in Engines/ that the daily cleanup keeps (the engines' trees go): the build
+    # folder, the cargo target directory (PGO profiles, HiGHS), the submodules and the arbiters
+    return name in ('src', 'target', 'submodules') or name.startswith('ygo-arbiter-')
+
 def core_commit(name):
     with open(os.path.join(engine_tree(name), SUBMODULES_FILE)) as fin:
         return json.load(fin)[CORE]

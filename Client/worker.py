@@ -801,7 +801,7 @@ def cleanup_client():
 
     for file in os.listdir('Engines'):
         path = os.path.join('Engines', file)
-        if file in ('target', 'submodules') or file_age(path) <= SECONDS_PER_DAY:
+        if ygo.kept_in_engines(file) or file_age(path) <= SECONDS_PER_DAY:
             continue
         if os.path.isdir(path): shutil.rmtree(path)
         else: os.remove(path)
