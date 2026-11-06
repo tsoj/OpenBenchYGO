@@ -26,7 +26,7 @@
 #     so that "./Engines/<name> bench" works as for a UCI engine.
 #   - The match runner is ygo-arbiter (the base engine's), not fastchess. An opening
 #     is played twice, the seats swapped: a game pair. The arbiter prints its
-#     cumulative pentanomial every 10 pairs; the Client reports the differences.
+#     cumulative pentanomial after each pair; the Client reports the differences.
 #   - Books are JSON lines (one opening per line); each runner plays its slice.
 #   - Instead of PGNs, the arbiter's records (one JSON line per game).
 
@@ -223,7 +223,7 @@ def runner_command(workload, dev_name, base_name, scale_factor, book_path, recor
         '--bot', '%s=%s' % (BASE, bot_command(base_name, env)),
         '--book', book_path, '-n', str(workload['distribution']['rounds-per-runner']),
         '-c', str(workload['distribution']['concurrency-per']),
-        '--records', records_path] + flags
+        '--records', records_path, '--report-every', '1'] + flags
 
 def die_with_parent():
 
@@ -271,6 +271,30 @@ def nps_stats(records_paths, scale_factor):
 
     return stats
 
-def compress_records(records_paths):
-    data = b''.join(open(p, 'rb').read() for p in records_paths if os.path.exists(p))
-    return bz2.compress(data)
+def compact_label(label):
+    # (a label of the VERBOSE records: the eval in integer units and the times in ms)
+    out = { k : label[k] for k in ('decision', 'player', 'depth', 'nodes') if k in label }
+    if 'value' in label:
+        out['value'] = round(label['value'])
+    for key in ('time', 'search_time'):
+        if key in label:
+            out[key + '_ms'] = round(label[key] * 1000)
+    return out
+
+def compress_records(records_paths, mode):
+
+    # COMPACT: the records without labels (the decks, seeds and responses replay a game),
+    # about 0.55 KB per game; VERBOSE: with rounded labels, about 1.6 KB per game
+
+    lines = []
+    for path in records_paths:
+        if not os.path.exists(path):
+            continue
+        for line in open(path):
+            record = json.loads(line)
+            labels = record.pop('labels', [])
+            if mode == 'VERBOSE':
+                record['labels'] = [compact_label(label) for label in labels]
+            lines.append(json.dumps(record, separators=(',', ':')) + '\n')
+
+    return bz2.compress(''.join(lines).encode('utf-8'))

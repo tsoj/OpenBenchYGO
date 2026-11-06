@@ -1179,7 +1179,7 @@ def complete_workload(config):
 
         # Upload the records (instead of PGNs) if requested
         if config.workload['test']['upload_pgns'] != 'FALSE':
-            ServerReporter.report_pgn(config, ygo.compress_records(records))
+            ServerReporter.report_pgn(config, ygo.compress_records(records, config.workload['test']['upload_pgns']))
 
 def safe_download_network_weights(config, branch):
 
