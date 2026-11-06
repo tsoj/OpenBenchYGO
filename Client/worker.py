@@ -232,8 +232,8 @@ class Configuration:
 
         print('\nDetermining ISA...')
 
-        # Match the machine to a Stockfish-style ISA using our C++ compiler
-        self.isa_name = isa_detector.detect_isa(self.cxx_comp)
+        # (Stockfish-style ISAs need a C++ compiler; the bots use the machine's own CPU)
+        self.isa_name = platform.machine()
         print('Found   | %s' % (self.isa_name))
 
     def determine_huge_pages(self):
