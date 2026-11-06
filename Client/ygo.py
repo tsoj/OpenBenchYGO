@@ -60,7 +60,7 @@ DEV, BASE = 'dev', 'base'
 PROGRESS = re.compile(
     r'games (\d+): \+(\d+) =(\d+) -(\d+) .*?penta \[(\d+), (\d+), (\d+), (\d+), (\d+)\]')
 
-# The search's time per decision for "N=" and "NPS=" controls (the node limit decides)
+# The arbiter's clock for the node controls N= and NpsAdjustedN= (the node limit decides)
 NODES_TC = '60+1'
 
 TIMEOUT_HTTP = 30
@@ -293,21 +293,29 @@ def book_slice(book_name, book_seed, start, count, out_path):
         for i in range(count):
             fout.write(lines[order[(start + i) % len(lines)]])
 
-def search_settings(time_control, scale_factor):
+def search_settings(dev_control, base_control, scale_factor):
 
-    # (arbiter flags, bot environment) of an OpenBench time control
+    # (arbiter flags, bot environment) of the engines' OpenBench time controls: both N=X (X nodes
+    # per decision), dev NpsAdjustedN=X with base N=X (base X nodes, dev X times its nodes/s ratio
+    # to base: ygo-arbiter --nps-nodes), or both BASE+INC (scaled by the machine's speed)
 
-    if match := re.match(r'NPS=(\d+)$', time_control):
+    if match := re.match(r'NpsAdjustedN=(\d+)$', dev_control):
+        if base_control != 'N=%s' % match.group(1):
+            raise utils.OpenBenchFatalWorkerException('Dev %s needs base N=%s' % (dev_control, match.group(1)))
         return ['--tc', NODES_TC, '--nps-nodes', match.group(1)], {}
 
-    if match := re.match(r'N=(\d+)$', time_control):
+    if dev_control != base_control:
+        raise utils.OpenBenchFatalWorkerException('Time controls %s and %s: ygo-arbiter plays both engines with one '
+            '(or dev NpsAdjustedN=X, base N=X)' % (dev_control, base_control))
+
+    if match := re.match(r'N=(\d+)$', dev_control):
         return ['--tc', NODES_TC], { 'BOT_SEARCH_NODES' : match.group(1) }
 
-    if match := re.match(r'(\d*(?:\.\d+)?)\+(\d*(?:\.\d+)?)$', time_control):
+    if match := re.match(r'(\d*(?:\.\d+)?)\+(\d*(?:\.\d+)?)$', dev_control):
         base, inc = float(match.group(1)), float(match.group(2))
         return ['--tc', '%.3f+%.3f' % (base * scale_factor, inc * scale_factor)], {}
 
-    raise utils.OpenBenchFatalWorkerException('Time control %s: ygo-arbiter takes NPS=, N= or BASE+INC' % time_control)
+    raise utils.OpenBenchFatalWorkerException('Time control %s: ygo-arbiter takes NpsAdjustedN=, N= or BASE+INC' % dev_control)
 
 def bot_command(name, env):
     return ' '.join(['env'] + ['%s=%s' % kv for kv in sorted(env.items())] + [os.path.join(os.path.abspath('Engines'), name), 'alphabeta'])
@@ -315,10 +323,7 @@ def bot_command(name, env):
 def runner_command(workload, dev_name, base_name, scale_factor, book_path, records_path):
 
     test = workload['test']
-    if test['dev']['time_control'] != test['base']['time_control']:
-        raise utils.OpenBenchFatalWorkerException('ygo-arbiter plays both engines with one time control')
-
-    flags, env = search_settings(test['dev']['time_control'], scale_factor)
+    flags, env = search_settings(test['dev']['time_control'], test['base']['time_control'], scale_factor)
     arbiter    = arbiter_path(core_commit(base_name))
 
     return [arbiter,

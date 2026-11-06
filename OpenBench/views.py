@@ -400,8 +400,8 @@ def search(request):
     TC      = OpenBench.utils.TimeControl
     tc_type = params.get('tc-type', '')
 
-    if tc_type == TC.NPS_NODES:
-        tests = tests.filter(dev_time_control__startswith='NPS=')
+    if tc_type == TC.NPS_ADJUSTED_NODES:
+        tests = tests.filter(dev_time_control__startswith='NpsAdjustedN=')
     elif tc_type == TC.FIXED_NODES:
         tests = tests.filter(dev_time_control__startswith='N=')
     elif tc_type == TC.FIXED_DEPTH:

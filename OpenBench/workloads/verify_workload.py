@@ -86,6 +86,7 @@ def verify_test_creation(errors, request):
         (verify_options        , 'base_options', 'Threads', 'Base Options'),
         (verify_options        , 'base_options', 'Hash', 'Base Options'),
         (verify_time_control   , 'base_time_control', 'Base Time Control'),
+        (verify_time_control_pair,),
 
         # Verify everything about the Test Settings
         (verify_book           , 'book_name', 'Book'),
@@ -189,6 +190,7 @@ def verify_datagen_creation(errors, request):
         (verify_options        , 'base_options', 'Threads', 'Base Options'),
         (verify_options        , 'base_options', 'Hash', 'Base Options'),
         (verify_time_control   , 'base_time_control', 'Base Time Control'),
+        (verify_time_control_pair,),
 
         # Verify everything about the Datagen Settings
         (verify_datagen_games  , 'datagen_max_games'),
@@ -248,6 +250,22 @@ def verify_book(errors, request, field, field_name):
 def verify_time_control(errors, request, field, field_name):
     try: OpenBench.utils.TimeControl.parse(request.POST[field])
     except: errors.append('{0} is not parsable'.format(field_name))
+
+def verify_time_control_pair(errors, request):
+
+    # NpsAdjustedN=X: only the dev engine's, with the base engine's N=X (the reference)
+
+    try:
+        dev  = OpenBench.utils.TimeControl.parse(request.POST['dev_time_control'])
+        base = OpenBench.utils.TimeControl.parse(request.POST['base_time_control'])
+    except Exception:
+        return # (verify_time_control reports it)
+
+    adjusted = OpenBench.utils.TimeControl.NPS_ADJUSTED_NODES
+    if OpenBench.utils.TimeControl.control_type(base) == adjusted:
+        errors.append('Base Time Control cannot be NpsAdjustedN= (the base engine is the reference: N=)')
+    if OpenBench.utils.TimeControl.control_type(dev) == adjusted and base != 'N=' + dev.split('=')[1]:
+        errors.append('Dev Time Control %s needs Base Time Control N=%s' % (dev, dev.split('=')[1]))
 
 def verify_win_adj(errors, request, field):
     try:
