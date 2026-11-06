@@ -128,7 +128,12 @@ class Configuration:
 
         # The bots and ygo-arbiter are Rust, built profile-guided (see ygo.py)
         print('Looking for Cargo... [v%s]' % locate_utility('cargo'))
-        print('Looking for llvm-profdata... [v%s]' % locate_utility('llvm-profdata'))
+        # (the builds' make finds it in LLVM_PROFDATA)
+        os.environ['LLVM_PROFDATA'] = ygo.llvm_profdata()
+        if not locate_utility(os.environ['LLVM_PROFDATA'], force_exit=False, report_error=False):
+            print('[Error] Unable to locate llvm-profdata (rustup component add llvm-tools, or set LLVM_PROFDATA)')
+            sys.exit()
+        print('Looking for llvm-profdata... [v%s] %s' % (get_version(os.environ['LLVM_PROFDATA']), os.environ['LLVM_PROFDATA']))
         self.cxx_comp = None
 
     def init_client(self):

@@ -198,6 +198,26 @@ def core_commit(name):
 def arbiter_path(core):
     return os.path.abspath(os.path.join('Engines', 'ygo-arbiter-%s' % core))
 
+def llvm_profdata():
+
+    # The llvm-profdata of the PGO builds (the Makefile's LLVM_PROFDATA): $LLVM_PROFDATA, else
+    # the one of rustup's llvm-tools (rustc's LLVM version: `rustup component add llvm-tools`),
+    # else the one on PATH (its LLVM version must be rustc's)
+
+    if path := os.environ.get('LLVM_PROFDATA'):
+        return path
+
+    try:
+        sysroot = subprocess.run(['rustc', '--print', 'sysroot'], capture_output=True, text=True).stdout.strip()
+        host    = re.search(r'^host: (\S+)$', subprocess.run(['rustc', '-vV'], capture_output=True, text=True).stdout, re.M).group(1)
+        path    = os.path.join(sysroot, 'lib', 'rustlib', host, 'bin', 'llvm-profdata')
+        if os.path.isfile(path):
+            return path
+    except (OSError, AttributeError):
+        pass
+
+    return 'llvm-profdata'
+
 def wrapper_script(tree):
 
     # The binary OpenBench sees: the tree's bot with YGO_ROOT=<tree>
