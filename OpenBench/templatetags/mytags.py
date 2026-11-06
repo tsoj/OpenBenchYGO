@@ -278,7 +278,8 @@ def test_is_smp_odds(test):
     return dev_threads != base_threads
 
 def test_is_time_odds(test):
-    return test.dev_time_control != test.base_time_control
+    return test.dev_time_control != test.base_time_control \
+       and not OpenBench.utils.TimeControl.is_nps_adjusted_pair(test.dev_time_control, test.base_time_control)
 
 def test_is_fischer(test):
     return 'FRC' in test.book_name.upper() or '960' in test.book_name.upper()

@@ -116,6 +116,15 @@ class TimeControl(object):
         return TimeControl.FISCHER
 
     @staticmethod
+    def is_nps_adjusted_pair(dev_str, base_str):
+
+        # Dev NpsAdjustedN=X with base N=X: one speed-balanced control (dev searches as long as
+        # base for its X nodes), not time odds
+
+        return TimeControl.control_type(dev_str) == TimeControl.NPS_ADJUSTED_NODES \
+           and base_str == 'N=' + dev_str.split('=')[1]
+
+    @staticmethod
     def control_base(time_str):
 
         # Fixed-nodes, Fixed-depth, Fixed-time

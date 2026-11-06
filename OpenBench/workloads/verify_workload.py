@@ -261,10 +261,10 @@ def verify_time_control_pair(errors, request):
     except Exception:
         return # (verify_time_control reports it)
 
-    adjusted = OpenBench.utils.TimeControl.NPS_ADJUSTED_NODES
-    if OpenBench.utils.TimeControl.control_type(base) == adjusted:
+    TC = OpenBench.utils.TimeControl
+    if TC.control_type(base) == TC.NPS_ADJUSTED_NODES:
         errors.append('Base Time Control cannot be NpsAdjustedN= (the base engine is the reference: N=)')
-    if OpenBench.utils.TimeControl.control_type(dev) == adjusted and base != 'N=' + dev.split('=')[1]:
+    if TC.control_type(dev) == TC.NPS_ADJUSTED_NODES and not TC.is_nps_adjusted_pair(dev, base):
         errors.append('Dev Time Control %s needs Base Time Control N=%s' % (dev, dev.split('=')[1]))
 
 def verify_win_adj(errors, request, field):
