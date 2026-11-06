@@ -143,8 +143,11 @@ def download_client_files(args):
                 with zipfile.ZipFile(temp_zip_file) as zip_file:
                     zip_file.extractall(temp_dir)
 
-                # Copy all files except client.py
-                client_dir = os.path.join(temp_dir, 'OpenBench-%s' % (repo_ref), 'Client')
+                # Copy all files except client.py (from the archive's single root folder, named
+                # after the repository: OpenBenchYGO-master)
+                root_dirs  = os.listdir(temp_dir)
+                client_dir = os.path.join(temp_dir, root_dirs[0], 'Client')
+                assert len(root_dirs) == 1 and os.path.isdir(client_dir)
                 for root, dirs, files in os.walk(client_dir):
                     for file in files:
                         if file != 'client.py':
