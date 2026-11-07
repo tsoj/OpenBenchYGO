@@ -23,11 +23,14 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 #   OPENBENCH_SECRET_KEY      a long random string
 #   OPENBENCH_DEBUG=0
 #   OPENBENCH_HOSTS           the server's host names, comma-separated (e.g. bench.example.org)
+#   OPENBENCH_MIN_FREE_GB     (default 2) with less free disk space, workers get no new workloads
 # With HTTPS behind a proxy (Caddy, nginx), the proxy sets X-Forwarded-Proto.
 SECRET_KEY = os.environ.get('OPENBENCH_SECRET_KEY', '@!zw2l8til1(0eb_nk+1w!(n78gqm&u)s)_v7#k6iseia@g9q0')
 DEBUG = os.environ.get('OPENBENCH_DEBUG', '1') == '1'
 
 ALLOWED_HOSTS = os.environ.get('OPENBENCH_HOSTS', '*').split(',')
+MIN_FREE_DISK = float(os.environ.get('OPENBENCH_MIN_FREE_GB', '2')) * 1e9
+
 CSRF_TRUSTED_ORIGINS = ['https://%s' % host for host in ALLOWED_HOSTS if host != '*']
 SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 

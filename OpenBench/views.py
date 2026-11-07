@@ -18,7 +18,7 @@
 #                                                                             #
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
-import csv, io, os, json, secrets
+import csv, datetime, io, os, json, secrets, shutil
 
 import django.http
 import django.shortcuts
@@ -40,7 +40,7 @@ from OpenSite.settings import PROJECT_PATH
 
 from OpenBench.models import *
 from django.contrib.auth.models import User
-from OpenSite.settings import MEDIA_ROOT
+from OpenSite.settings import MEDIA_ROOT, MIN_FREE_DISK
 
 from django.db import transaction
 from django.db.models import F, Q
@@ -812,9 +812,36 @@ def client_get_network(request, engine, name):
     # Return the requested Neural Network file for the Client
     return networks(request, engine, 'DOWNLOAD', name, client=True)
 
+# The summary of the event of a nearly full disk (at most one event per LOW_DISK_EVENT_INTERVAL)
+LOW_DISK_SUMMARY        = 'Server disk nearly full'
+LOW_DISK_EVENT_INTERVAL = datetime.timedelta(hours=1)
+
+def log_low_disk(machine, free):
+
+    # An event on /errors/ for a nearly full disk, at most one per LOW_DISK_EVENT_INTERVAL
+
+    since = timezone.now() - LOW_DISK_EVENT_INTERVAL
+    if LogEvent.objects.filter(summary__startswith=LOW_DISK_SUMMARY, created__gte=since).exists():
+        return
+
+    LogEvent.objects.create(
+        author     = machine.user.username,
+        summary    = '%s: %.1f GB free, no new workloads below %.1f GB (OPENBENCH_MIN_FREE_GB)' % (
+                         LOW_DISK_SUMMARY, free / 1e9, MIN_FREE_DISK / 1e9),
+        log_file   = '',
+        machine_id = machine.id,
+        test_id    = 0)
+
 @csrf_exempt
 @verify_worker
 def client_get_workload(request, machine):
+
+    # No new workloads while the disk is nearly full: their results and records could not be
+    # stored. The workers wait; the workloads in progress have the remaining space.
+    if (free := shutil.disk_usage(PROJECT_PATH).free) < MIN_FREE_DISK:
+        log_low_disk(machine, free)
+        return JsonResponse({})
+
     return JsonResponse(get_workload(request, machine))
 
 @csrf_exempt

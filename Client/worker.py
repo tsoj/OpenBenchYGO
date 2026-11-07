@@ -62,7 +62,7 @@ from client import try_forever
 
 ## Basic configuration of the Client. These timeouts can be changed at will
 
-CLIENT_VERSION   = 55 # Client version to send to the Server
+CLIENT_VERSION   = 56 # Client version to send to the Server
 TIMEOUT_HTTP     = 30 # Timeout in seconds for HTTP requests
 TIMEOUT_ERROR    = 60 # Timeout in seconds when any errors are thrown
 TIMEOUT_WORKLOAD = 60 # Timeout in seconds between workload requests
@@ -265,6 +265,10 @@ class ServerReporter:
 
         target   = utils.url_join(config.server, endpoint)
         response = requests.post(target, data=payload, files=files, timeout=TIMEOUT_HTTP)
+
+        # A server error (e.g. a full disk): the server did not store the report
+        if response.status_code != 200:
+            raise utils.OpenBenchBadServerResponseException('%s: HTTP %d' % (endpoint, response.status_code))
 
         # Check for a json repsone, to look for Client Version Errors
         try: as_json = response.json()
@@ -698,8 +702,9 @@ class ResultsReporter(object):
             else:
                 break
 
-        # Send any remaining results immediately
-        self.send_results(report_interval=0, final_report=True)
+        # Send any remaining results immediately, until the server received them
+        while self.send_results(report_interval=0, final_report=True) is None and self.pending:
+            time.sleep(TIMEOUT_ERROR)
 
     def send_results(self, report_interval, final_report=False):
 
@@ -733,6 +738,7 @@ class ResultsReporter(object):
             traceback.print_exc()
             print ('[Note] Failed to upload results to server...')
             self.last_report = time.time()
+            return None
 
     def send_errors(self, timestamp, runner_cnt):
 
@@ -1183,11 +1189,29 @@ def complete_workload(config):
 
         # Submit NPS stats
         if config.workload['test']['type'] in ('SPRT', 'GAMES'):
-            ServerReporter.report_nps_stats(config, ygo.nps_stats(records, scale_factor))
+            report_until_received(ServerReporter.report_nps_stats, config, ygo.nps_stats(records, scale_factor))
 
         # Upload the records (instead of PGNs) if requested
         if config.workload['test']['upload_pgns'] != 'FALSE':
-            ServerReporter.report_pgn(config, ygo.compress_records(records, config.workload['test']['upload_pgns']))
+            records_data = ygo.compress_records(records, config.workload['test']['upload_pgns'])
+            report_until_received(ServerReporter.report_pgn, config, records_data)
+
+def report_until_received(report, *args):
+
+    # Calls the ServerReporter function report until the server received the report: after a
+    # server error or without a connection, again after TIMEOUT_ERROR seconds
+
+    while True:
+        try:
+            return report(*args)
+
+        except (BadVersionException, utils.OpenBenchFatalWorkerException):
+            raise
+
+        except Exception:
+            traceback.print_exc()
+            print ('[Note] The server did not receive the report, again in %d seconds...' % (TIMEOUT_ERROR))
+            time.sleep(TIMEOUT_ERROR)
 
 def safe_download_network_weights(config, branch):
 

@@ -70,8 +70,8 @@ class OpenBenchMissingAPICredentialsException(Exception):
         super().__init__(self.message)
 
 class OpenBenchBadServerResponseException(Exception):
-    def __init__(self):
-        self.message = ''
+    def __init__(self, message=''):
+        self.message = message
         super().__init__(self.message)
 
 class OpenBenchFailedGenfensException(Exception):
