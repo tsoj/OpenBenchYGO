@@ -277,13 +277,13 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
 
 /* Scrolling containers clip what lies outside them: room for the text box frame's outset and
    outer shadow */
-#content #config { padding: 10px; box-sizing: border-box; }
+#content #config { padding: 10px; box-sizing: content-box; }   /* (the padding comes on top of the table's width) */
 
 /* The results table lines up with the configuration table (same column, same width) */
 @media (min-width: 768px) {
     #content .workload-container {
         display: grid;
-        grid-template-columns: auto auto;
+        grid-template-columns: max-content auto;   /* (the configuration scrolls: an auto column would not grow to its width) */
         justify-content: start;
         column-gap: 8px;
         align-items: start;
@@ -293,7 +293,7 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
     #content .workload-container #summary-container { grid-column: 1 / -1; grid-row: 2; }
     #content .workload-container #results { grid-column: 1; grid-row: 3; }
 }
-#content #results { padding: 0 10px; box-sizing: border-box; }
+#content #results, #content #summary-container { padding: 0 10px; box-sizing: border-box; }   /* (in line with the configuration) */
 #content #results table { width: 100%; }
 #content #results > button { margin-top: 18px; }   /* (clear of the frame's outset and shadow) */
 
