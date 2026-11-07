@@ -1,0 +1,456 @@
+/* OpenBenchYGO theme: card materials on the OpenBench layout, loaded after style.css, base.css,
+   form.css and paging.css. Bevels are hard solid edges, as on the card: light top and left, dark
+   bottom and right. No gradients, no soft shadows, no transitions.
+   - page: a wall of hieroglyphs (Papyrus of Ani, with a Black Rose Dragon glyph)
+   - sidebar and #content: card frames (Normal monster)
+   - site title: the name box
+   - tables: effect boxes
+   - statblocks: the result's card type (frame ring around its parchment)
+   - long statblock: the art window
+   Card textures: seamless clouds colored from the frame templates of kooriookami/yugioh-card
+   (MIT); the effect box frame is cut from those templates. */
+
+/* The card fonts put the glyphs low in their line box: the overrides center capitals and
+   small capitals in it (from the fonts' cap heights). */
+@font-face { font-family: "YGO Name";   src: url("ygo/ygo-en-name.woff2") format("woff2");
+             ascent-override: 74%; descent-override: 26%; line-gap-override: 0%; }
+@font-face { font-family: "YGO Effect"; src: url("ygo/ygo-en.woff2") format("woff2");
+             ascent-override: 92%; descent-override: 28%; line-gap-override: 0%; }
+@font-face { font-family: "YGO Race";   src: url("ygo/ygo-en-race.woff2") format("woff2");
+             ascent-override: 88%; descent-override: 22%; line-gap-override: 0%; }
+
+:root {
+    /* Bevel colors of the Normal frame, measured on the template's name box */
+    --ygo-hi:      #d8c290;
+    --ygo-hi-2:    #e8d6a8;
+    --ygo-lo:      #79542a;
+    --ygo-lo-2:    #9a7440;
+    --ygo-ink:     #120c06;   /* text on parchment */
+    --ygo-ink-2:   #4a2c18;
+    --ygo-strong:  #000;      /* headings, labels, names */
+    --ygo-icon:    #4a3416;
+    --ygo-rule:    #c9a88c;
+    --ygo-link:    #7a1f08;
+    --ygo-row-hover: rgba(113, 54, 34, 0.10);
+    --ygo-attr:    url("ygo/attr-dark.png");  /* the theme toggle: the attribute it switches to */
+
+    /* Materials of the light theme: Normal monster frame, Normal parchment. Textures are
+       drawn at their own size (a tile scaled by the browser can show its edges as thin lines
+       at fractional device pixel ratios): 512px tiles for panels, 256px tiles elsewhere. */
+    --ygo-frame:      url("ygo/cloud-normal.jpg");     /* panels: the full-size tile, at 512px */
+    --ygo-frame-small: var(--ygo-cloud-normal);  /* buttons: the half-size tile, at 256px */
+    --ygo-frame-ink:  #000;
+    --ygo-parch:      var(--ygo-parch-normal);
+    --ygo-sb-synchro: var(--ygo-parch-synchro);
+    --ygo-sb-running: var(--ygo-cloud-synchro);  /* ring of a running test */
+    --ygo-sb-spell:   var(--ygo-parch-spell);
+    --ygo-sb-ritual:  var(--ygo-parch-ritual);
+    --ygo-sb-normal:  var(--ygo-parch-normal);
+    --ygo-sb-trap:    var(--ygo-parch-trap);
+    --ygo-wall-color: #7c5a2c;
+
+    /* Art window frame, measured on a card */
+    --ygo-steel-hi: #6f7a95;
+    --ygo-steel-lo: #3c4560;
+    --ygo-steel-in: #0d1018;
+
+    --ygo-wall: url("ygo/hiero.jpg");
+
+    --ygo-cloud-effect:  url("ygo/cloud-effect-256.jpg");
+    --ygo-cloud-fusion:  url("ygo/cloud-fusion-256.jpg");
+    --ygo-cloud-normal:  url("ygo/cloud-normal-256.jpg");
+    --ygo-cloud-ritual:  url("ygo/cloud-ritual-256.jpg");
+    --ygo-cloud-synchro: url("ygo/cloud-synchro-256.jpg");
+    --ygo-cloud-spell:   url("ygo/cloud-spell-256.jpg");
+    --ygo-cloud-trap:    url("ygo/cloud-trap-256.jpg");
+
+    --ygo-parch-normal:  url("ygo/parch-normal-256.jpg");
+    --ygo-parch-ritual:  url("ygo/parch-ritual-256.jpg");
+    --ygo-parch-synchro: url("ygo/parch-synchro-256.jpg");
+    --ygo-parch-spell:   url("ygo/parch-spell-256.jpg");
+    --ygo-parch-trap:    url("ygo/parch-trap-256.jpg");
+
+    --ygo-effect-box: url("ygo/effectbox.png");
+}
+
+/* The dark theme: a Dark Synchro monster. Its frame is a dark warm gray, its text box a light
+   gray (both measured on cards); the wall is in the frame's warm gray, darker. */
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --ygo-hi:      #6e6460;
+    --ygo-hi-2:    #7d726d;
+    --ygo-lo:      #151211;
+    --ygo-lo-2:    #2a2523;
+    --ygo-ink:     #141312;
+    --ygo-ink-2:   #4a4744;
+    --ygo-strong:  #000;
+    --ygo-icon:    #d2ccc6;
+    --ygo-rule:    #a9a6a2;
+    --ygo-link:    #7a1f08;
+    --ygo-row-hover: rgba(0, 0, 0, 0.07);
+    --ygo-attr:    url("ygo/attr-light.png");
+
+    --ygo-frame:      url("ygo/cloud-dsynchro.jpg");
+    --ygo-frame-small: url("ygo/cloud-dsynchro-256.jpg");
+    --ygo-frame-ink:  #f1ede8;
+    --ygo-parch:      url("ygo/dparch-dsynchro-256.jpg");
+    --ygo-sb-running: url("ygo/cloud-dsynchro-256.jpg");
+    --ygo-sb-synchro: url("ygo/dparch-dsynchro-256.jpg");
+    --ygo-wall:       url("ygo/hiero-dark.jpg");
+    --ygo-wall-color: #1d1a17;
+}
+
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+
+/* ---------- The page: a wall of hieroglyphs ---------- */
+
+body {
+    background: var(--ygo-wall-color) var(--ygo-wall) 0 0 / 432px;
+    font-family: "YGO Effect", Georgia, serif;
+    color: var(--ygo-ink);
+}
+
+a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }
+
+/* Card frames: the sidebar and the content */
+#sidebar, #content {
+    background: var(--ygo-frame) 0 0 / 512px;
+    border: 3px solid;
+    border-color: var(--ygo-hi) var(--ygo-lo) var(--ygo-lo) var(--ygo-hi);
+    box-sizing: border-box;
+}
+/* The sidebar and the content panel have the same height: the taller one sets it */
+#sidebar {
+    align-self: stretch;
+    margin: 16px 0 16px 16px;
+    padding: 10px 2px;
+}
+#content-parent {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding-top: 16px;
+    padding-bottom: 16px;
+}
+#content {
+    flex: 1;
+    margin-top: 0;
+    padding: 14px 18px 22px;
+}
+
+/* Raised and sunken bevels */
+#content-header h2,
+#content .anchorbutton {
+    border-style: solid;
+    border-color: var(--ygo-hi) var(--ygo-lo) var(--ygo-lo) var(--ygo-hi);
+}
+#content .row input, #content .row select, #content .row textarea {
+    border-style: solid;
+    border-color: var(--ygo-lo) var(--ygo-hi-2) var(--ygo-hi-2) var(--ygo-lo);
+}
+
+/* ---------- Sidebar: a menu; the item under the pointer is pressed in ---------- */
+
+#sidebar ul { padding: 0 4px; }
+#sidebar .header {
+    font-family: "YGO Race", Georgia, serif;
+    color: var(--ygo-frame-ink);
+    font-size: 1.1rem;
+}
+#sidebar .header::before { content: "["; }
+#sidebar .header::after  { content: "]"; }
+#sidebar li { border-radius: 0; padding: 3px 12px 2px; transition: none; }
+#sidebar li:hover { background: transparent; }
+#sidebar li a { color: var(--ygo-frame-ink); }
+#sidebar li a:hover { text-decoration: underline; }
+#sidebar li a i { color: var(--ygo-icon); }
+#sidebar hr {
+    border: 0;
+    border-top: 1px solid var(--ygo-lo-2);
+    border-bottom: 1px solid var(--ygo-hi-2);
+    height: 0;
+}
+
+/* ---------- Site title: the name box ---------- */
+
+#content-header { align-items: center; }
+#content-header h2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    margin: 0 0 18px;
+    padding: 6px 8px 6px 12px;
+    border-width: 6px;
+    background: var(--ygo-frame) 128px 64px / 512px;
+}
+/* The theme toggle: the attribute of the theme it switches to (DARK, LIGHT) */
+#content-header .theme-toggle {
+    flex: none;
+    width: 2.1rem; height: 2.1rem;
+    padding: 0;
+    border: 0;
+    border-radius: 50%;
+    background: var(--ygo-attr) center / contain no-repeat;
+    cursor: pointer;
+}
+#content-header .theme-toggle:focus-visible { outline: 1px dotted var(--ygo-frame-ink); outline-offset: 2px; }
+#content-header .site-title,
+#content-header .site-title:link,
+#content-header .site-title:visited {
+    font-family: "YGO Name", Georgia, serif;
+    font-weight: 400;
+    font-size: 2.1rem;
+    line-height: 1;
+    color: var(--ygo-frame-ink);
+}
+#sidebar-toggle { color: var(--ygo-frame-ink); background: transparent; border: 0; }
+
+/* ---------- Tables: effect boxes ---------- */
+
+#content table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 12px solid transparent;
+    /* the frame lies on the parchment: its inner shadow falls on the parchment, its outer
+       shadow on the card frame. The frame image is the template's at 0.75 (shrunk with
+       averaging: a browser shrinking a border image by much more drops thin lines in and out
+       with the position); slices of 48px, shown at half size. The band's outer edge is 9px
+       (top, left) and 11px (right, bottom; the longer shadow) into the image, the outset puts
+       it on the edge. */
+    border-image: var(--ygo-effect-box) 48 / 24px / 4.5px 5.6px 5.6px 4.5px stretch;
+    background: var(--ygo-parch) 0 0 / 256px;
+    line-height: 1.15;
+}
+#content td { color: var(--ygo-ink); border-bottom: 1px solid var(--ygo-rule); }
+#content tr:last-child td { border-bottom: 0; }
+
+#content .stripes tr:nth-child(odd):not(.table-header),
+#content .stripes tr:nth-child(even):not(.table-header),
+#content .hoverable tr:hover,
+#content .hoverable tr:nth-child(odd):hover:not(.table-header),
+#content .hoverable tr:nth-child(even):hover:not(.table-header) { background: transparent; }
+#content .hoverable tr.test-row:hover td:not(.statblock) { background-color: var(--ygo-row-hover); }
+
+#content .stripes th,
+#content .table-header th,
+#content .table-small-header th {
+    background: transparent;
+    border-radius: 0;
+    color: var(--ygo-strong);
+    text-align: left;
+}
+#content .table-header th {
+    font-family: "YGO Race", Georgia, serif;
+    font-weight: 400;
+    font-size: 1.05rem;
+    border-bottom: 2px solid var(--ygo-strong);
+}
+#content .table-header th[colspan]::before { content: "["; }
+#content .table-header th[colspan]::after  { content: "]"; }
+#content .table-small-header th {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ygo-ink-2);
+    font-size: 0.85rem;
+}
+#content .table-spacer th, #content .table-spacer tr { background: transparent; }
+#content table a:hover { text-decoration: underline; }
+
+#content .test-config .td-label {
+    font-family: "YGO Race", Georgia, serif;
+    color: var(--ygo-strong);
+}
+
+/* ---------- Statblocks: the result's card type ---------- */
+
+/* The cell is the card: a ring of the type's frame around its parchment; the boxes of a column
+   touch, with OpenBench's rounded corners */
+#content .statblock {
+    --sb-cloud: var(--ygo-sb-running);
+    --sb-parch: var(--ygo-sb-synchro);
+    padding: 4px;
+    background: var(--sb-cloud) 0 0 / 256px;
+    border: 1px solid #000;
+    box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 0 rgba(0, 0, 0, 0.4);
+    vertical-align: middle;
+    line-height: 1.2;
+}
+#content .statblock strong {
+    display: block;
+    padding: 4px 7px 3px;
+    background: var(--sb-parch) 0 0 / 256px;
+    border: 1px solid rgba(0, 0, 0, 0.7);
+    font-family: "YGO Effect", Georgia, serif;
+    font-weight: 400;
+    font-size: 12.5px;
+    color: var(--ygo-ink);
+    white-space: nowrap;
+}
+#content .statblock-green  { --sb-cloud: var(--ygo-cloud-spell);  --sb-parch: var(--ygo-sb-spell);  background-color: transparent; }
+#content .statblock-blue   { --sb-cloud: var(--ygo-cloud-ritual); --sb-parch: var(--ygo-sb-ritual); background-color: transparent; }
+#content .statblock-yellow { --sb-cloud: var(--ygo-cloud-normal); --sb-parch: var(--ygo-sb-normal); background-color: transparent; }
+#content .statblock-red    { --sb-cloud: var(--ygo-cloud-trap);   --sb-parch: var(--ygo-sb-trap);   background-color: transparent; }
+
+/* The long statblock: the art window */
+#content .long-statblock {
+    background: var(--ygo-steel-in);
+    color: #d9dde8;
+    border: 7px solid;
+    border-color: var(--ygo-steel-hi) var(--ygo-steel-lo) var(--ygo-steel-lo) var(--ygo-steel-hi);
+    border-radius: 0;
+    outline: 1px solid #1d120b;
+    font-family: "Courier Prime", monospace;
+    font-size: 14px;
+    overflow-x: auto;
+}
+
+/* ---------- Buttons: raised boxes in the card type's frame ---------- */
+
+#content .anchorbutton {
+    --nb: var(--ygo-frame-small);
+    border-width: 3px;
+    border-radius: 0;
+    border-color: rgba(255, 255, 255, 0.55) rgba(0, 0, 0, 0.5) rgba(0, 0, 0, 0.5) rgba(255, 255, 255, 0.55);
+    background: var(--nb) 0 0 / 256px;
+    font-family: "YGO Name", Georgia, serif;
+    font-size: 21px;
+    line-height: 1;
+    color: var(--ygo-frame-ink);
+    padding: 5px 4px 5px;
+    transition: none;
+}
+#content .anchorbutton:active {
+    border-color: rgba(0, 0, 0, 0.5) rgba(255, 255, 255, 0.55) rgba(255, 255, 255, 0.55) rgba(0, 0, 0, 0.5);
+    padding: 6px 3px 4px 5px;
+}
+#content .btn-blue     { --nb: var(--ygo-cloud-fusion);  color: #fff; }
+#content .btn-start    { --nb: var(--ygo-cloud-effect);  color: #000; }
+#content .btn-preset   { --nb: var(--ygo-cloud-spell);   color: #fff; }
+#content .btn-yellow   { --nb: var(--ygo-cloud-normal);  color: #000; }
+#content .btn-red      { --nb: var(--ygo-cloud-trap);    color: #fff; }
+#content .btn-disabled { --nb: var(--ygo-cloud-synchro); color: #8a8f96; }
+#content .btn-blue, #content .btn-start, #content .btn-preset, #content .btn-yellow,
+#content .btn-red, #content .btn-disabled,
+#content .btn-blue:hover, #content .btn-start:hover, #content .btn-preset:hover,
+#content .btn-yellow:hover, #content .btn-red:hover, #content .btn-disabled:hover { background-color: transparent; }
+#content .btn-disabled:active {
+    border-color: rgba(255, 255, 255, 0.55) rgba(0, 0, 0, 0.5) rgba(0, 0, 0, 0.5) rgba(255, 255, 255, 0.55);
+    padding: 5px 4px 5px;
+}
+
+/* ---------- Forms: sunken parchment fields ---------- */
+
+#content .row label {
+    font-family: "YGO Name", Georgia, serif;
+    color: var(--ygo-frame-ink);
+    font-size: 1.2rem;
+}
+#content .row input, #content .row select, #content .row textarea {
+    border-width: 2px;
+    border-radius: 0;
+    background: var(--ygo-parch) 0 0 / 256px;
+    color: var(--ygo-ink);
+    font-family: "YGO Effect", Georgia, serif;
+}
+#content .row input:focus, #content .row select:focus, #content .row textarea:focus {
+    outline: 1px dotted var(--ygo-strong);
+    outline-offset: -4px;
+}
+
+#content #actions h4 a {
+    font-family: "YGO Name", Georgia, serif;
+    font-size: 1.6rem;
+    color: var(--ygo-frame-ink);
+}
+
+/* Scrolling containers clip what lies outside them: room for the effect frame's outset and
+   outer shadow */
+#content #config { padding: 10px; box-sizing: border-box; }
+
+/* Workload page: the results table lines up with the configuration table (same column, same
+   width, same room for the frame) */
+@media (min-width: 768px) {
+    #content .workload-container {
+        display: grid;
+        grid-template-columns: auto auto;
+        justify-content: start;
+        column-gap: 8px;
+        align-items: start;
+    }
+    #content .workload-container #config  { grid-column: 1; grid-row: 1; }
+    #content .workload-container #actions { grid-column: 2; grid-row: 1; }
+    #content .workload-container #summary-container { grid-column: 1 / -1; grid-row: 2; }
+    #content .workload-container #results { grid-column: 1; grid-row: 3; }
+}
+#content #results { padding: 0 10px; box-sizing: border-box; }
+/* Workload page in a narrow panel: one column, as on phones (configuration, then actions) */
+@media (min-width: 768px) {
+    @container (max-width: 900px) {
+        #content .workload-container { display: flex; flex-direction: column; }
+        #content .workload-container #actions { margin: 1rem 10px 0; }
+    }
+}
+#content #results table { width: 100%; }
+/* (clear of the frame's outset and shadow) */
+#content #results > button { margin-top: 18px; }
+
+/* ---------- Phones ----------
+   The name box (with the menu button) is a bar at the top of the page; it scrolls with the
+   page. Menu open: the name box, then the menu, in the page's flow. */
+
+@media (max-width: 767px) {
+    #content-header {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 10;
+        padding: 6px 8px;
+        background: var(--ygo-frame) 0 0 / 512px;
+        border-bottom: 3px solid;
+        border-color: var(--ygo-lo);
+    }
+    #content-header h2 { flex: 1; min-width: 0; margin: 0; padding: 4px 6px 4px 8px; }
+    #content-header .site-title,
+    #content-header .site-title:link,
+    #content-header .site-title:visited { font-size: clamp(1.0rem, 5.2vw, 1.5rem); white-space: normal; }
+    #content-header .theme-toggle { width: 1.7rem; height: 1.7rem; }
+    #sidebar-toggle {
+        padding: 4px 8px;
+        margin-right: 6px;
+        font-size: 1.8rem;
+        color: var(--ygo-frame-ink);
+    }
+    #content-parent { padding: 8px; }
+    #content { margin-top: 68px; padding: 10px 10px 18px; }
+    #sidebar { display: none; }
+
+    /* the menu open */
+    body.sidebar-open { position: static; overflow-y: visible; }
+    body.sidebar-open #content-parent { order: -1; padding-bottom: 0; }
+    body.sidebar-open #content { margin-top: 0; padding: 0; border: 0; background: none; }
+    body.sidebar-open #content > :not(#content-header) { display: none; }
+    body.sidebar-open #content-header { position: static; }
+    body.sidebar-open #sidebar {
+        display: block;
+        position: static;
+        transform: none;
+        width: auto;
+        margin: 8px;
+        padding: 10px 8px 16px;
+        transition: none;
+    }
+}
+
+/* The test list at medium widths: the info column gets the width the others leave (OpenBench's
+   max-width: 0); with too little left it would wrap word by word into tall rows. So first the
+   engine column goes, then the info column (widths of the other columns: about 775px). */
+/* (only on these pages: elsewhere the panel keeps growing with wide tables) */
+#content:has(.test-list), #content:has(.workload-container) { container-type: inline-size; }
+@media (min-width: 768px) {   /* (phones list the tests as blocks: all fields fit) */
+    @container (max-width: 924px) {
+        #content .test-list .test-engine { display: none; }
+    }
+    @container (max-width: 832px) {
+        #content .test-list .test-info { display: none; }
+    }
+}
