@@ -21,15 +21,20 @@
 # Yu-Gi-Oh! bots instead of UCI engines (github.com/tsoj/yugioh_AI):
 #
 #   - An engine is a source tree: the commit's zipball plus its submodules (Github's
-#     zipballs have none), built with its Makefile (make EXE=bot; make arbiter). The
+#     zipballs have none), built with its Makefile (make EXE=bot). The
 #     binary in Engines/ is a wrapper that runs the tree's bot with YGO_ROOT=<tree>,
 #     so that "./Engines/<name> bench" works as for a UCI engine.
 #   - Builds are incremental: each commit is built in the same folder (Engines/src,
 #     unchanged files keep their times) with one cargo target directory, so cargo
 #     builds only the changed crates. The PGO profile is made once per ygopro-core-rust
-#     commit; ygo-arbiter is built once per ygopro-core-rust commit.
-#   - Both bots and the arbiter use the same ygopro-core-rust commit; a test with two
-#     commits fails to build, unless an engine's options have AllowCoreMismatch=true.
+#     commit.
+#   - ygo-arbiter is built once per ygopro-core-rust commit, from that commit's source
+#     only (Engines/arbiter-src, with cargo; not with the engine's Makefile): the
+#     arbiter of a commit is the same whatever engine's tree has the commit.
+#   - Both bots and the arbiter use the same rules: the same commits of ygopro-core-rust,
+#     external/CardScripts and external/BabelCDB (the arbiter reads the base's). A test
+#     with different commits fails to build, unless an engine's options allow it:
+#     AllowCoreMismatch=true (ygopro-core-rust), AllowCardsMismatch=true (the others).
 #   - The match runner is ygo-arbiter (the base engine's), not fastchess. An opening
 #     is played twice, the seats swapped: a game pair. The arbiter prints its
 #     cumulative pentanomial after each pair; the Client reports the differences.
@@ -68,8 +73,15 @@ TIMEOUT_HTTP = 30
 # The submodule with the game engine and the arbiter; the tree's file of its submodules' commits
 CORE, SUBMODULES_FILE = 'ygopro-core-rust', 'submodules.json'
 
-# An engine option that allows dev and base on different ygopro-core-rust commits
-ALLOW_CORE_MISMATCH = 'AllowCoreMismatch=true'
+# The submodules of the rules, which dev and base must have at the same commits, and the engine
+# option that allows different commits
+RULES = (
+    ((CORE,), 'AllowCoreMismatch=true'),
+    (('external/CardScripts', 'external/BabelCDB'), 'AllowCardsMismatch=true'),
+)
+
+# The arbiter's build folder (a copy of the ygopro-core-rust source)
+ARBITER_SRC = 'arbiter-src'
 
 def github_repo(url):
 
@@ -189,11 +201,14 @@ def kept_in_engines(name):
 
     # The files in Engines/ that the daily cleanup keeps (the engines' trees go): the build
     # folder, the cargo target directory (PGO profiles, HiGHS), the submodules and the arbiters
-    return name in ('src', 'target', 'submodules') or name.startswith('ygo-arbiter-')
+    return name in ('src', 'target', 'submodules', ARBITER_SRC) or name.startswith('ygo-arbiter-')
+
+def submodule_commits(name):
+    with open(os.path.join(engine_tree(name), SUBMODULES_FILE)) as fin:
+        return json.load(fin)
 
 def core_commit(name):
-    with open(os.path.join(engine_tree(name), SUBMODULES_FILE)) as fin:
-        return json.load(fin)[CORE]
+    return submodule_commits(name)[CORE]
 
 def arbiter_path(core):
     return os.path.abspath(os.path.join('Engines', 'ygo-arbiter-%s' % core))
@@ -217,6 +232,27 @@ def llvm_profdata():
         pass
 
     return 'llvm-profdata'
+
+def build_arbiter(core_src, arbiter, engines):
+
+    # ygo-arbiter of the ygopro-core-rust source core_src at the path arbiter. Built in one folder
+    # (Engines/arbiter-src) with one cargo target directory: incremental between commits.
+
+    src    = os.path.join(engines, ARBITER_SRC)
+    target = os.path.join(engines, 'target', 'arbiter')
+    sync_tree(core_src, src)
+
+    command = ['cargo', 'build', '--release', '--manifest-path', os.path.join(src, 'Cargo.toml'),
+        '-p', 'ygo-arbiter', '--bin', 'ygo-arbiter']
+    process = subprocess.run(command, cwd=src, env=dict(os.environ, CARGO_TARGET_DIR=target),
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if process.returncode:
+        raise utils.OpenBenchBuildFailedException('Error during compilation of ygo-arbiter',
+            process.stdout.decode('utf-8', errors='replace'))
+
+    # (atomic: a file at the path arbiter is complete)
+    shutil.copy2(os.path.join(target, 'release', 'ygo-arbiter'), arbiter + '.tmp')
+    os.replace(arbiter + '.tmp', arbiter)
 
 def wrapper_script(tree):
 
@@ -255,16 +291,14 @@ def prepare_engine(engine, branch, source, out_path, private):
     profile = os.path.join(target, 'pgo', 'core-%s' % commits[CORE])
     arbiter = arbiter_path(commits[CORE])
 
-    builds = [['make', '-j', 'EXE=%s' % os.path.join(tree, 'bot'), 'PROFILE=%s' % profile]]
-    if not os.path.isfile(arbiter):
-        builds.append(['make', 'arbiter', 'ARBITER=%s' % arbiter])
+    command = ['make', '-j', 'EXE=%s' % os.path.join(tree, 'bot'), 'PROFILE=%s' % profile]
+    process = subprocess.run(command, cwd=src, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+    if process.returncode:
+        raise utils.OpenBenchBuildFailedException('Error during compilation',
+            process.stdout.decode('utf-8', errors='replace'))
 
-    output = ''
-    for command in builds:
-        process = subprocess.run(command, cwd=src, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-        output += process.stdout.decode('utf-8', errors='replace')
-        if process.returncode:
-            raise utils.OpenBenchBuildFailedException('Error during compilation', output)
+    if not os.path.isfile(arbiter):
+        build_arbiter(os.path.join(tree, CORE), arbiter, engines)
 
     # (last: a tree with this file is complete)
     with open(os.path.join(tree, SUBMODULES_FILE), 'w') as fout:
@@ -350,14 +384,18 @@ def runner_env(base_name):
 
 def check_core(workload, dev_name, base_name):
 
-    # Raises OpenBenchBuildFailedException if dev and base have different ygopro-core-rust
-    # commits (the base's arbiter plays both) and no engine's options allow it
+    # Raises OpenBenchBuildFailedException if dev and base have different commits of a submodule
+    # of the rules (the base's arbiter and card data play both) and no engine's options allow it
 
-    dev, base = core_commit(dev_name), core_commit(base_name)
-    options   = [workload['test'][branch]['options'].split() for branch in ('dev', 'base')]
-    if dev != base and not any(ALLOW_CORE_MISMATCH in o for o in options):
-        raise utils.OpenBenchBuildFailedException('Different %s commits' % CORE,
-            'dev %s, base %s (engine option %s to allow it)' % (dev, base, ALLOW_CORE_MISMATCH))
+    dev, base = submodule_commits(dev_name), submodule_commits(base_name)
+    options   = workload['test']['dev']['options'].split() + workload['test']['base']['options'].split()
+
+    for paths, allow in RULES:
+        different = [path for path in paths if dev.get(path) != base.get(path)]
+        if different and allow not in options:
+            raise utils.OpenBenchBuildFailedException('Different commits of %s' % ', '.join(different),
+                '\n'.join('%s: dev %s, base %s' % (path, dev.get(path), base.get(path)) for path in different)
+                + '\n(engine option %s to allow it)' % allow)
 
 def parse_progress(line):
 
