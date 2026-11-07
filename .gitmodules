@@ -1,0 +1,3 @@
+[submodule "OpenBench/static/ygo.css"]
+	path = OpenBench/static/ygo.css
+	url = https://github.com/tsoj/ygo.css.git

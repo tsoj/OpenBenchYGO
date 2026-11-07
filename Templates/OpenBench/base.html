@@ -8,22 +8,16 @@
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
         <meta name="darkreader-lock">
 
-        <script>
-            // The theme before the first paint: dark only when chosen (the toggle in the name
-            // box), else light. The system's theme is not used.
-            (function () {
-                var theme = 'light';
-                try { if (localStorage.getItem('theme') === 'dark') theme = 'dark'; } catch (e) {}
-                document.documentElement.setAttribute('data-theme', theme);
-            })();
-        </script>
+        <!-- ygo.css: the theme, before the first paint (dark only when chosen with the attribute) -->
+        <script src="{% static 'ygo.css/ygo.js' %}?{{ static_version }}"></script>
 
         <link rel="icon" type="image/svg+xml" href="{% static 'logo.svg' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'style.css' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'base.css' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'form.css' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'paging.css' %}?{{ static_version }}">
-        <link rel="stylesheet" href="{% static 'ygo.css' %}?{{ static_version }}">
+        <link rel="stylesheet" href="{% static 'ygo.css/ygo.css' %}?{{ static_version }}">
+        <link rel="stylesheet" href="{% static 'openbench-ygo.css' %}?{{ static_version }}">
 
         <link href='https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.2.0/css/all.min.css' rel='stylesheet'>
 
@@ -118,17 +112,6 @@
             function toggle_sidebar() {
                 document.body.classList.toggle('sidebar-open')
             }
-
-            // The attribute in the name box switches between the light and the dark theme.
-            // Only dark is stored: light is the default.
-            function toggle_theme() {
-                const theme = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
-                document.documentElement.setAttribute('data-theme', theme);
-                try {
-                    if (theme === 'dark') localStorage.setItem('theme', 'dark');
-                    else localStorage.removeItem('theme');
-                } catch (e) {}
-            }
         </script>
     </head>
 
@@ -207,7 +190,7 @@
                     </button>
                     <h2>
                         <a class="site-title" href="/">OpenBench&nbsp;Testing&nbsp;Framework</a>
-                        <button class="theme-toggle" onclick="toggle_theme()" type="button" title="Light / dark theme" aria-label="Switch between the light and the dark theme"></button>
+                        <button class="attribute ygo-theme-toggle" type="button" title="Light / dark theme" aria-label="Switch between the light and the dark theme"></button>
                     </h2>
                 </div>
 

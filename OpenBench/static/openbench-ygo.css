@@ -1,0 +1,364 @@
+/* ygo.css (the submodule ygo.css/) on the OpenBench layout: loaded after style.css, base.css,
+   form.css, paging.css and ygo.css/ygo.css. It gives OpenBench's elements the materials of
+   ygo.css, from its variables (--card-*, --ygo-*):
+   - sidebar and #content: card frames
+   - site title: a name box (with the theme switch, an attribute)
+   - tables: text boxes
+   - statblocks: the result's card type (Spell: passed, Ritual: passed with Elo < 0, Normal:
+     failed with W >= L, Trap: failed; running: Synchro, in the dark theme Dark Synchro)
+   - long statblock: an art box
+   - buttons: in card types (Fusion: OpenBench's blue buttons) */
+
+a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css: light blue) */
+
+/* ---------- Card frames: the sidebar and the content ---------- */
+
+#sidebar, #content {
+    background: var(--card-frame) 0 0 / 512px;
+    border: 3px solid;
+    border-color: var(--ygo-raised);
+    color: var(--card-ink);
+    box-sizing: border-box;
+}
+/* The sidebar and the content panel have the same height: the taller one sets it */
+#sidebar {
+    align-self: stretch;
+    margin: 16px 0 16px 16px;
+    padding: 10px 2px;
+}
+#content-parent {
+    display: flex;
+    flex-direction: column;
+    height: auto;
+    padding-top: 16px;
+    padding-bottom: 16px;
+}
+#content {
+    flex: 1;
+    margin-top: 0;
+    padding: 14px 18px 22px;
+}
+
+/* ---------- Sidebar: a menu ---------- */
+
+#sidebar ul { padding: 0 4px; }
+#sidebar .header {
+    font-family: var(--ygo-font-type);
+    color: var(--card-ink);
+    font-size: 1.1rem;
+}
+#sidebar .header::before { content: "["; }
+#sidebar .header::after  { content: "]"; }
+#sidebar li { border-radius: 0; padding: 3px 12px 2px; transition: none; }
+#sidebar li:hover { background: transparent; }
+#sidebar li a { color: var(--card-ink); }
+#sidebar li a:hover { text-decoration: underline; }
+#sidebar li a i { opacity: 0.75; }
+#sidebar hr {
+    border: 0;
+    border-top: 1px solid rgba(0, 0, 0, 0.35);
+    border-bottom: 1px solid rgba(255, 255, 255, 0.45);
+    height: 0;
+}
+
+/* ---------- Site title: a name box ---------- */
+
+#content-header { align-items: center; }
+#content-header h2 {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex: 1;
+    margin: 0 0 18px;
+    padding: 6px 8px 6px 12px;
+    border: 6px solid;
+    border-color: var(--ygo-raised);
+    background: var(--card-frame) 128px 64px / 512px;
+}
+#content-header .site-title,
+#content-header .site-title:link,
+#content-header .site-title:visited {
+    font-family: var(--ygo-font-name);
+    font-weight: 400;
+    font-size: 2.1rem;
+    line-height: 1;
+    color: var(--card-ink);
+}
+#content-header .attribute { width: 2.1rem; height: 2.1rem; }
+#sidebar-toggle { color: var(--card-ink); background: transparent; border: 0; }
+
+/* ---------- Tables: text boxes ---------- */
+
+#content table {
+    border-collapse: separate;
+    border-spacing: 0;
+    border: 12px solid transparent;
+    border-image: var(--ygo-text-box-frame) 48 / 24px / 4.5px 5.6px 5.6px 4.5px stretch;   /* (as .text-box) */
+    background: var(--card-text) 0 0 / 256px;
+    line-height: 1.15;
+}
+#content td { color: var(--ygo-ink); border-bottom: 1px solid var(--ygo-rule); }
+#content tr:last-child td { border-bottom: 0; }
+#content table a:link, #content table a:visited { color: var(--ygo-link); }
+#content table a:hover { text-decoration: underline; }
+
+#content .stripes tr:nth-child(odd):not(.table-header),
+#content .stripes tr:nth-child(even):not(.table-header),
+#content .hoverable tr:hover,
+#content .hoverable tr:nth-child(odd):hover:not(.table-header),
+#content .hoverable tr:nth-child(even):hover:not(.table-header) { background: transparent; }
+#content .hoverable tr.test-row:hover td:not(.statblock) { background-color: rgba(80, 40, 10, 0.09); }
+
+#content .stripes th,
+#content .table-header th,
+#content .table-small-header th {
+    background: transparent;
+    border-radius: 0;
+    color: #000;
+    text-align: left;
+}
+#content .table-header th {
+    font-family: var(--ygo-font-type);
+    font-weight: 400;
+    font-size: 1.05rem;
+    border-bottom: 2px solid #000;
+}
+#content .table-header th[colspan]::before { content: "["; }
+#content .table-header th[colspan]::after  { content: "]"; }
+#content .table-small-header th {
+    font-style: italic;
+    font-weight: 400;
+    color: var(--ygo-ink-soft);
+    font-size: 0.85rem;
+}
+#content .table-spacer th, #content .table-spacer tr { background: transparent; }
+
+#content .test-config .td-label {
+    font-family: var(--ygo-font-type);
+    color: #000;
+}
+
+/* ---------- Statblocks: the result's card type ----------
+   The cell is the card: a ring of the type's frame around its text box; the boxes of a column
+   touch, with OpenBench's rounded corners. */
+
+#content .statblock {
+    padding: 4px;
+    background: var(--card-frame-small) 0 0 / 256px;
+    border: 1px solid #000;
+    box-shadow: inset 1px 1px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 0 rgba(0, 0, 0, 0.4);
+    vertical-align: middle;
+    line-height: 1.2;
+}
+#content .statblock strong {
+    display: block;
+    padding: 4px 7px 3px;
+    background: var(--card-text) 0 0 / 256px;
+    border: 1px solid rgba(0, 0, 0, 0.7);
+    font-family: var(--ygo-font-text);
+    font-weight: 400;
+    font-size: 12.5px;
+    color: var(--ygo-ink);
+    white-space: nowrap;
+}
+/* (the card types: as data-card in ygo.css) */
+#content .statblock[class$="statblock-"] {     /* running */
+    --card-frame-small: url("ygo.css/assets/textures/frame-synchro-256.jpg");
+    --card-text: url("ygo.css/assets/textures/text-synchro-256.jpg");
+}
+:root[data-theme="dark"] #content .statblock[class$="statblock-"] {
+    --card-frame-small: url("ygo.css/assets/textures/frame-dark-synchro-256.jpg");
+    --card-text: url("ygo.css/assets/textures/text-dark-synchro-256.jpg");
+}
+#content .statblock-green {
+    --card-frame-small: url("ygo.css/assets/textures/frame-spell-256.jpg");
+    --card-text: url("ygo.css/assets/textures/text-spell-256.jpg");
+}
+#content .statblock-blue {
+    --card-frame-small: url("ygo.css/assets/textures/frame-ritual-256.jpg");
+    --card-text: url("ygo.css/assets/textures/text-ritual-256.jpg");
+}
+#content .statblock-yellow {
+    --card-frame-small: url("ygo.css/assets/textures/frame-normal-256.jpg");
+    --card-text: url("ygo.css/assets/textures/text-normal-256.jpg");
+}
+#content .statblock-red {
+    --card-frame-small: url("ygo.css/assets/textures/frame-trap-256.jpg");
+    --card-text: url("ygo.css/assets/textures/text-trap-256.jpg");
+}
+#content .statblock-green, #content .statblock-blue,
+#content .statblock-yellow, #content .statblock-red { background-color: transparent; }
+
+/* The long statblock: an art box */
+#content .long-statblock {
+    background: var(--ygo-steel-in);
+    color: #d9dde8;
+    border: 7px solid;
+    border-color: var(--ygo-steel-hi) var(--ygo-steel-lo) var(--ygo-steel-lo) var(--ygo-steel-hi);
+    border-radius: 0;
+    outline: 1px solid #1d120b;
+    font-family: "Courier Prime", monospace;
+    font-size: 14px;
+    overflow-x: auto;
+}
+
+/* ---------- Buttons (as ygo.css's buttons) ---------- */
+
+#content .anchorbutton {
+    border: 3px solid;
+    border-color: var(--ygo-raised-overlay);
+    border-radius: 0;
+    background: var(--card-frame-small) 0 0 / 256px;
+    font-family: var(--ygo-font-name);
+    font-size: 21px;
+    line-height: 1;
+    color: var(--card-ink);
+    padding: 5px 4px 5px;
+    transition: none;
+}
+#content .anchorbutton:active {
+    border-color: var(--ygo-sunken-overlay);
+    padding: 6px 3px 4px 5px;
+}
+#content .btn-blue {
+    --card-frame-small: url("ygo.css/assets/textures/frame-fusion-256.jpg"); --card-ink: #fff;
+}
+#content .btn-start {
+    --card-frame-small: url("ygo.css/assets/textures/frame-effect-256.jpg"); --card-ink: #000;
+}
+#content .btn-preset {
+    --card-frame-small: url("ygo.css/assets/textures/frame-spell-256.jpg"); --card-ink: #fff;
+}
+#content .btn-yellow {
+    --card-frame-small: url("ygo.css/assets/textures/frame-normal-256.jpg"); --card-ink: #000;
+}
+#content .btn-red {
+    --card-frame-small: url("ygo.css/assets/textures/frame-trap-256.jpg"); --card-ink: #fff;
+}
+#content .btn-disabled {
+    --card-frame-small: url("ygo.css/assets/textures/frame-synchro-256.jpg"); --card-ink: #8a8f96;
+}
+#content .btn-blue, #content .btn-start, #content .btn-preset, #content .btn-yellow,
+#content .btn-red, #content .btn-disabled,
+#content .btn-blue:hover, #content .btn-start:hover, #content .btn-preset:hover,
+#content .btn-yellow:hover, #content .btn-red:hover, #content .btn-disabled:hover { background-color: transparent; }
+#content .btn-disabled:active {
+    border-color: var(--ygo-raised-overlay);
+    padding: 5px 4px 5px;
+}
+
+/* ---------- Forms: sunken text box fields (as ygo.css's fields) ---------- */
+
+#content .row label {
+    font-family: var(--ygo-font-name);
+    color: var(--card-ink);
+    font-size: 1.2rem;
+}
+#content .row input, #content .row select, #content .row textarea {
+    border: 2px solid;
+    border-color: var(--ygo-sunken);
+    border-radius: 0;
+    background: var(--card-text) 0 0 / 256px;
+    color: var(--ygo-ink);
+    font-family: var(--ygo-font-text);
+}
+#content .row input:focus, #content .row select:focus, #content .row textarea:focus {
+    outline: 1px dotted #000;
+    outline-offset: -4px;
+}
+
+#content #actions h4 a {
+    font-family: var(--ygo-font-name);
+    font-size: 1.6rem;
+    color: var(--card-ink);
+}
+
+/* ---------- Workload page ---------- */
+
+/* Scrolling containers clip what lies outside them: room for the text box frame's outset and
+   outer shadow */
+#content #config { padding: 10px; box-sizing: border-box; }
+
+/* The results table lines up with the configuration table (same column, same width) */
+@media (min-width: 768px) {
+    #content .workload-container {
+        display: grid;
+        grid-template-columns: auto auto;
+        justify-content: start;
+        column-gap: 8px;
+        align-items: start;
+    }
+    #content .workload-container #config  { grid-column: 1; grid-row: 1; }
+    #content .workload-container #actions { grid-column: 2; grid-row: 1; }
+    #content .workload-container #summary-container { grid-column: 1 / -1; grid-row: 2; }
+    #content .workload-container #results { grid-column: 1; grid-row: 3; }
+}
+#content #results { padding: 0 10px; box-sizing: border-box; }
+#content #results table { width: 100%; }
+#content #results > button { margin-top: 18px; }   /* (clear of the frame's outset and shadow) */
+
+/* ---------- Narrow panels ----------
+   The test list: the info column gets the width the others leave (OpenBench's max-width: 0);
+   with too little left it would wrap word by word into tall rows. So first the engine column
+   goes, then the info column (the other columns: about 775px). The workload page: one column
+   (configuration, then actions). Only on these pages: elsewhere the panel keeps growing with
+   wide tables. */
+
+#content:has(.test-list), #content:has(.workload-container) { container-type: inline-size; }
+@media (min-width: 768px) {   /* (phones list the tests as blocks: all fields fit) */
+    @container (max-width: 924px) {
+        #content .test-list .test-engine { display: none; }
+    }
+    @container (max-width: 832px) {
+        #content .test-list .test-info { display: none; }
+    }
+    @container (max-width: 900px) {
+        #content .workload-container { display: flex; flex-direction: column; }
+        #content .workload-container #actions { margin: 1rem 10px 0; }
+    }
+}
+
+/* ---------- Phones ----------
+   The name box (with the menu button) is a bar at the top of the page; it scrolls with the
+   page. Menu open: the name box, then the menu, in the page's flow. */
+
+@media (max-width: 767px) {
+    #content-header {
+        position: absolute;
+        top: 0; left: 0; right: 0;
+        z-index: 10;
+        padding: 6px 8px;
+        background: var(--card-frame) 0 0 / 512px;
+        border-bottom: 3px solid var(--card-lo);
+    }
+    #content-header h2 { flex: 1; min-width: 0; margin: 0; padding: 4px 6px 4px 8px; }
+    #content-header .site-title,
+    #content-header .site-title:link,
+    #content-header .site-title:visited { font-size: clamp(1.0rem, 5.2vw, 1.5rem); white-space: normal; }
+    #content-header .attribute { width: 1.7rem; height: 1.7rem; }
+    #sidebar-toggle {
+        padding: 4px 8px;
+        margin-right: 6px;
+        font-size: 1.8rem;
+        color: var(--card-ink);
+    }
+    #content-parent { padding: 8px; }
+    #content { margin-top: 68px; padding: 10px 10px 18px; }
+    #sidebar { display: none; }
+
+    /* the menu open */
+    body.sidebar-open { position: static; overflow-y: visible; }
+    body.sidebar-open #content-parent { order: -1; padding-bottom: 0; }
+    body.sidebar-open #content { margin-top: 0; padding: 0; border: 0; background: none; }
+    body.sidebar-open #content > :not(#content-header) { display: none; }
+    body.sidebar-open #content-header { position: static; }
+    body.sidebar-open #sidebar {
+        display: block;
+        position: static;
+        transform: none;
+        width: auto;
+        margin: 8px;
+        padding: 10px 8px 16px;
+        transition: none;
+    }
+}
