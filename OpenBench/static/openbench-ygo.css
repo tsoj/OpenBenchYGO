@@ -132,6 +132,8 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
     font-size: 0.85rem;
 }
 #content .table-spacer th, #content .table-spacer tr { background: transparent; }
+/* (some room under a heading row: as the "Priority" row gives it under "Active") */
+#content .table-header + .test-row td { padding-top: 16px; }
 
 #content .test-config .td-label {
     font-family: var(--ygo-font-type);
@@ -283,13 +285,15 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
 @media (min-width: 768px) {
     #content .workload-container {
         display: grid;
-        grid-template-columns: max-content auto;   /* (the configuration scrolls: an auto column would not grow to its width) */
+        /* (the configuration: its full width (it scrolls: an auto column would not grow to it);
+           the actions: their width, at most what is left (the long statblock then scrolls)) */
+        grid-template-columns: max-content minmax(0, max-content);
         justify-content: start;
         column-gap: 8px;
         align-items: start;
     }
     #content .workload-container #config  { grid-column: 1; grid-row: 1; }
-    #content .workload-container #actions { grid-column: 2; grid-row: 1; }
+    #content .workload-container #actions { grid-column: 2; grid-row: 1; margin-right: 10px; }   /* (the configuration's padding, on the right) */
     #content .workload-container #summary-container { grid-column: 1 / -1; grid-row: 2; }
     #content .workload-container #results { grid-column: 1; grid-row: 3; }
 }
