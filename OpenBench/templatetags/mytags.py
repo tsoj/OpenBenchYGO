@@ -19,7 +19,11 @@
 # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # # #
 
 import django
+import math
 import re
+
+import scipy.stats
+import django.utils.safestring
 
 import OpenBench.config
 import OpenBench.models
@@ -306,3 +310,45 @@ def next(iterable, index):
 def previous(iterable, index):
     try: return iterable[int(index) - 1]
     except: return None
+
+@register.filter
+def eloDistribution(test):
+
+    # An inline SVG: the distribution of the true Elo (uniform prior, as the Elo line of the stat
+    # block), with the SPRT bounds (or 0) and the probabilities above them. Empty without games.
+
+    if not (posterior := OpenBench.stats.EloPosterior(test.results())):
+        return ''
+    mu, sd = posterior
+
+    lo = OpenBench.stats.logistic_elo(max(mu - 4 * sd, 1e-3))
+    hi = OpenBench.stats.logistic_elo(min(mu + 4 * sd, 1 - 1e-3))
+    marks = [test.elolower, test.eloupper] if test.test_mode == 'SPRT' else [0.0]
+    lo, hi = min([lo] + marks) - 1, max([hi] + marks) + 1
+
+    # (the density over Elo: the score's normal density times d score / d Elo)
+    W, H, top, base = 400, 120, 8, 96
+    def density(elo):
+        s = OpenBench.stats.logistic_score(elo)
+        return scipy.stats.norm.pdf((s - mu) / sd) / sd * s * (1 - s) * math.log(10) / 400
+    xs   = [lo + (hi - lo) * i / 200 for i in range(201)]
+    ys   = [density(x) for x in xs]
+    peak = max(ys)
+    X    = lambda elo: (elo - lo) / (hi - lo) * W
+    Y    = lambda y: base - y / peak * (base - top)
+    path = 'M%.1f,%.1f ' % (X(xs[0]), base) + ' '.join('L%.1f,%.1f' % (X(x), Y(y)) for x, y in zip(xs, ys)) + ' L%.1f,%.1f Z' % (X(xs[-1]), base)
+
+    parts = ['<path d="%s" fill="currentColor" fill-opacity="0.18" stroke="currentColor" stroke-width="1.5"/>' % path,
+             '<line x1="0" y1="%d" x2="%d" y2="%d" stroke="currentColor" stroke-opacity="0.5"/>' % (base, W, base)]
+    labels = []
+    for elo in marks:
+        p = OpenBench.stats.prob_elo_above(posterior, elo)
+        parts.append('<line x1="%.1f" y1="%d" x2="%.1f" y2="%d" stroke="currentColor" stroke-dasharray="3 3"/>' % (X(elo), top, X(elo), base))
+        parts.append('<text x="%.1f" y="%d" font-size="11" text-anchor="middle" fill="currentColor">%g</text>' % (X(elo), base + 13, elo))
+        labels.append('P(Elo &gt; %g) = %.1f%%' % (elo, 100 * p))
+
+    title = 'Elo distribution (uniform prior): ' + ', '.join(labels)
+    return django.utils.safestring.mark_safe(
+        '<figure class="elo-distribution" style="margin: 0.5em 0; color: var(--ygo-ink, currentColor)">'
+        '<svg viewBox="0 0 %d %d" width="100%%" style="max-width: %dpx; display: block" role="img" aria-label="%s">%s</svg>'
+        '<figcaption style="font-size: 0.85em">%s</figcaption></figure>' % (W, H, W, title, ''.join(parts), ' &middot; '.join(labels)))

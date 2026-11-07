@@ -158,6 +158,26 @@ def MLE_tvalue(pdfhat, ref, s):
     return pdf_MLE
 
 
+def EloPosterior(results):
+
+    # The distribution of the true score with a uniform prior: normal, mean mu and standard
+    # deviation sd (of the mean of the outcomes: games or game pairs), as Elo(). None without games.
+
+    if not (N := sum(results)) or N == 1:
+        return None
+
+    div = len(results) - 1
+    mu  = sum((f / div) * results[f] for f in range(len(results))) / N
+    var = sum(((f / div) - mu)**2 * results[f] for f in range(len(results))) / N
+    return (mu, math.sqrt(var / N)) if var > 0 else None
+
+def logistic_score(elo):
+    return 1 / (1 + 10 ** (-elo / 400))
+
+def prob_elo_above(posterior, elo):
+    mu, sd = posterior
+    return 1 - scipy.stats.norm.cdf((logistic_score(elo) - mu) / sd)
+
 def logistic_elo(x):
     x = min(max(x, 1e-3), 1-1e-3)
     return -400 * math.log10(1 / x - 1)
