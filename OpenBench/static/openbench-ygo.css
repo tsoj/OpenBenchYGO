@@ -132,14 +132,12 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
     font-size: 0.85rem;
 }
 #content .table-spacer th, #content .table-spacer tr { background: transparent; }
-/* Some room under a heading row (as the "Priority" row gives it under "Active"): on the
-   statblock cell as a transparent top border (its ring stays the size of the box; the black top
-   edge and the light bevel line are drawn inside) */
-#content .table-header + .test-row td:not(.statblock) { padding-top: 22px; }
-#content .table-header + .test-row td.statblock {
-    border-top: 12px solid transparent;
-    background-clip: padding-box;
-    box-shadow: inset 0 1px 0 #000, inset 1px 2px 0 rgba(255, 255, 255, 0.5), inset -1px -1px 0 rgba(0, 0, 0, 0.4);
+/* Some room under a heading row that tests follow directly (as the "Priority" row gives it under
+   "Active"): the heading row is taller, its line drawn 14px above its bottom (a 2px line image) */
+#content .table-header:has(+ .test-row) th {
+    border-bottom: 0;
+    padding-bottom: 22px;
+    background: linear-gradient(#000, #000) left bottom 14px / 100% 2px no-repeat;
 }
 
 #content .test-config .td-label {
@@ -288,8 +286,8 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
    outer shadow */
 #content #config { padding: 10px; box-sizing: content-box; }   /* (the padding comes on top of the table's width) */
 
-/* The configuration and the actions side by side, if the actions get 320px or more; else the
-   actions go under the configuration. The summary and the results below, from the same left
+/* The configuration and the actions side by side, if the actions get 320px or more (then the
+   rest of the line); else the actions go under the configuration. The summary and the results below, from the same left
    edge as the configuration. */
 @media (min-width: 768px) {
     #content .workload-container {
@@ -299,10 +297,9 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
         column-gap: 8px;
     }
     #content .workload-container #config { flex: none; }
-    #content .workload-container #actions {   /* (from 320px up to its width; the long statblock scrolls) */
+    #content .workload-container #actions {   /* (320px or more: the rest of the line; the long statblock scrolls if narrower) */
         flex: 1 0 320px;
         min-width: 0;
-        max-width: max-content;
         margin: 0 10px 1rem;
     }
     #content .workload-container #summary-container { flex: 0 0 100%; }
@@ -315,10 +312,12 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
 /* ---------- Narrow panels ----------
    The test list: the info column gets the width the others leave (OpenBench's max-width: 0);
    with too little left it would wrap word by word into tall rows. So first the engine column
-   goes, then the info column (the other columns: about 775px). Only on these pages: elsewhere
-   the panel keeps growing with wide tables. */
+   goes, then the info column (the other columns: about 775px). Only on this page: elsewhere the
+   panel keeps growing with wide tables. */
 
-#content:has(.test-list), #content:has(.workload-container) { container-type: inline-size; }
+#content:has(.test-list) { container-type: inline-size; }
+/* The workload page's panel: at most 1150px (OpenBench: 1000px): room for the actions */
+#content:has(.workload-container) { max-width: calc(min(100%, 1150px)); }
 @media (min-width: 768px) {   /* (phones list the tests as blocks: all fields fit) */
     @container (max-width: 924px) {
         #content .test-list .test-engine { display: none; }
