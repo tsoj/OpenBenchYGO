@@ -385,5 +385,5 @@ def testEta(test):
 
     hours = eta / 3600
     when  = '%.0f min' % (eta / 60) if hours < 1 else '%.1f h' % hours if hours < 48 else '%.0f days' % (hours / 24) if hours < 168 else '> 1 week'
-    return 'ETA ~ %s (~%s games%s, at this test\'s speed so far)' % (
+    return 'ETA ~ %s (~%s games%s)' % (
         when, '{:,}'.format(int(round(left, -2))), ' to ' + towards if towards else '')
