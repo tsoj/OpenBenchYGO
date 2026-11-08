@@ -409,7 +409,8 @@ def queueEta(tests):
 
     # "Idle in ~...": when the workers run out of the active tests' games (running or waiting):
     #   - the workers' throughput: the nodes per second of the active machines (Machine.node_rate,
-    #     measured over whole workloads; a machine without one: the others' rate per thread);
+    #     measured over whole workloads; a machine without one: the others' rate per thread; no
+    #     machine with one: the running tests' speeds times their nodes per game);
     #   - a test's games left: its ETA's (eta_estimate), faded to the mean SPRT length (finished
     #     SPRTs; without any, the active ones' expected lengths) less its games while it has few
     #     games (weight games / (games + mean / 2)); a GAMES test its missing games;
@@ -420,19 +421,23 @@ def queueEta(tests):
     tests     = list(tests)
     estimates = [eta_estimate(test) for test in tests]
 
-    machines = list(OpenBench.utils.getRecentMachines())
-    threads  = lambda m: m.info.get('concurrency', 0)
-    measured = [m for m in machines if m.node_rate > 0]
-    if not measured:
-        return ''
-    per_thread = sum(m.node_rate for m in measured) / max(1, sum(threads(m) for m in measured))
-    node_rate  = sum(m.node_rate if m.node_rate > 0 else per_thread * threads(m) for m in machines)
-
     sums = OpenBench.models.Result.objects.filter(test__in=tests).values('test').annotate(
         nodes=django.db.models.Sum(django.db.models.F('dev_nodes') + django.db.models.F('base_nodes')),
         games=django.db.models.Sum('games'))
     per_game = { row['test'] : row['nodes'] / row['games'] for row in sums if row['nodes'] and row['games'] }
     if not per_game:
+        return ''
+
+    # (without a measured machine: the running tests' speeds in nodes)
+    machines = list(OpenBench.utils.getRecentMachines())
+    threads  = lambda m: m.info.get('concurrency', 0)
+    measured = [m for m in machines if m.node_rate > 0]
+    if measured:
+        per_thread = sum(m.node_rate for m in measured) / max(1, sum(threads(m) for m in measured))
+        node_rate  = sum(m.node_rate if m.node_rate > 0 else per_thread * threads(m) for m in machines)
+    else:
+        node_rate = sum(e[2] * per_game[t.id] for t, e in zip(tests, estimates) if e and t.id in per_game)
+    if not node_rate:
         return ''
     measured_tests = [t for t in tests if t.id in per_game]
     with_limit     = [(t, control_nodes(t.dev_time_control)) for t in measured_tests]
