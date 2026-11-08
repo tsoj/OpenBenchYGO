@@ -30,7 +30,7 @@
 
             <!-- Currently Running tests (Waiting to be completed) -->
             {% if active %}
-                <tr class="table-header"><th colspan='7'>Active {{status}}</th></tr>
+                <tr class="table-header"><th colspan='7'>Active {{status}}{% if eta %}<span class="queue-eta">{{eta}}</span>{% endif %}</th></tr>
                 {% for group in active %}
                     <tr class="table-small-header"><th colspan='7'>Priority {{group.priority}}</th></tr>
                     {% for test in group.tests %}

@@ -357,11 +357,12 @@ def eloDistribution(test):
         '<svg viewBox="0 0 %d %d" width="100%%" style="max-width: %dpx; display: block" role="img" aria-label="%s">%s</svg>'
         '<figcaption style="font-size: 0.85em">%s</figcaption></figure>' % (W, H, W, title, ''.join(parts), ' &middot; '.join(labels)))
 
-def testEta(test):
+def eta_estimate(test):
 
-    # "ETA ~ ..." of a running test: the games left (SPRT: the LLR at its rate per game so far to
-    # the bound it moves to; GAMES: to max_games) at the test's speed since its first results.
-    # None if finished, without a start time, or the LLR has no direction yet.
+    # (games left, the hypothesis it moves to or None, games per second) of a running test: the
+    # games left (SPRT: the LLR at its rate per game so far to the bound it moves to; GAMES: to
+    # max_games), the speed since its first results. None if finished, without a start time, or
+    # the LLR has no direction yet.
 
     if test.finished or not test.started or not test.games:
         return None
@@ -381,9 +382,34 @@ def testEta(test):
     seconds = (django.utils.timezone.now() - test.started).total_seconds()
     if seconds <= 0 or left <= 0:
         return None
-    eta = left / (test.games / seconds)
+    return left, towards, test.games / seconds
 
-    hours = eta / 3600
-    when  = '%.0f min' % (eta / 60) if hours < 1 else '%.1f h' % hours if hours < 48 else '%.0f days' % (hours / 24) if hours < 168 else '> 1 week'
+def format_duration(seconds):
+    hours = seconds / 3600
+    return '%.0f min' % (seconds / 60) if hours < 1 else '%.1f h' % hours if hours < 48 \
+        else '%.0f days' % (hours / 24) if hours < 168 else '> 1 week'
+
+def testEta(test):
+
+    # "ETA ~ ..." of a running test (eta_estimate)
+
+    if not (estimate := eta_estimate(test)):
+        return None
+    left, towards, speed = estimate
     return 'ETA ~ %s (~%s games%s)' % (
-        when, '{:,}'.format(int(round(left, -2))), ' to ' + towards if towards else '')
+        format_duration(left / speed), '{:,}'.format(int(round(left, -2))), ' to ' + towards if towards else '')
+
+def queueEta(tests):
+
+    # "ETA ~ ... for all" of the active tests: their games left over the sum of their speeds (tests
+    # that share the workers each have a part of the speed), "+N without an estimate" for the tests
+    # without one (no results or no direction yet). Empty without any estimate.
+
+    estimates = [eta_estimate(test) for test in tests]
+    known     = [e for e in estimates if e]
+    if not known:
+        return ''
+    text = 'ETA ~ %s for all' % format_duration(sum(e[0] for e in known) / sum(e[2] for e in known))
+    if unknown := len(estimates) - len(known):
+        text += ' (+%d without an estimate)' % unknown
+    return text

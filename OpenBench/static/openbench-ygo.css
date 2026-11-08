@@ -375,3 +375,6 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
         transition: none;
     }
 }
+
+/* the ETA of all active tests: at the right end of the Active heading */
+#content .queue-eta { float: right; font-weight: normal; }
