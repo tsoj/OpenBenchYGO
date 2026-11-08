@@ -362,8 +362,8 @@ def eta_estimate(test):
 
     # (games left, the hypothesis it moves to or None, games per second) of a running test: the
     # games left (SPRT: the LLR at its rate per game so far to the bound it moves to; GAMES: to
-    # max_games), the speed since its first results. None if finished, without a start time, or
-    # the LLR has no direction yet.
+    # max_games), the speed since its first results (the games since). None if finished, without
+    # a start time or games since, or the LLR has no direction yet.
 
     if test.finished or not test.started or not test.games:
         return None
@@ -381,9 +381,10 @@ def eta_estimate(test):
         return None
 
     seconds = (django.utils.timezone.now() - test.started).total_seconds()
-    if seconds <= 0 or left <= 0:
+    played  = test.games - test.started_games
+    if seconds <= 0 or left <= 0 or played <= 0:
         return None
-    return left, towards, test.games / seconds
+    return left, towards, played / seconds
 
 def format_duration(seconds):
     hours = seconds / 3600

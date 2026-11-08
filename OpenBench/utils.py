@@ -582,8 +582,11 @@ def update_test(request, machine):
         test.DD     += DD
         test.DW     += DW
         test.WW     += WW
+        # (the ETA's speed: from the first results the server sees, the games since)
+        if not test.started:
+            test.started, test.started_games = timezone.now(), test.games
+
         test.games  += games  # Overall
-        test.started = test.started or timezone.now()
 
         # Consider only Crashes or Illegal moves as real errors
         test.error = bool(test.error or crashes or illegals)

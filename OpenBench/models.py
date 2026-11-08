@@ -276,6 +276,7 @@ class Test(Model):
     creation    = DateTimeField(auto_now_add=True)
     updated     = DateTimeField(auto_now=True)
     started     = DateTimeField(null=True, blank=True) # The first results (for the ETA)
+    started_games = IntegerField(default=0)              # (the games before them)
 
     def __str__(self):
         return '{0} vs {1} @ {2}'.format(self.dev.name, self.base.name, self.dev_time_control)
