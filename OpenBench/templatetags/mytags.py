@@ -401,15 +401,31 @@ def testEta(test):
 
 def queueEta(tests):
 
-    # "ETA ~ ... for all" of the active tests: their games left over the sum of their speeds (tests
-    # that share the workers each have a part of the speed), "+N without an estimate" for the tests
-    # without one (no results or no direction yet). Empty without any estimate.
+    # "Idle in ~...": when the workers run out of work, the active tests: their games left over the sum of the speeds of the
+    # tests with an estimate (tests that share the workers each have a part of the speed). A test
+    # without an estimate (waiting, or no direction yet): a GAMES test its games left, an SPRT the
+    # mean length of the finished SPRTs (without any: of the active ones' expected lengths) less its
+    # games so far (at least 10% of that mean). Empty without any speed (no estimate).
 
+    tests     = list(tests)
     estimates = [eta_estimate(test) for test in tests]
-    known     = [e for e in estimates if e]
-    if not known:
+    if not (speed := sum(e[2] for e in estimates if e)):
         return ''
-    text = 'ETA ~ %s for all' % format_duration(sum(e[0] for e in known) / sum(e[2] for e in known))
-    if unknown := len(estimates) - len(known):
-        text += ' (+%d without an estimate)' % unknown
-    return text
+
+    # (without finished SPRTs: the expected lengths of the active ones with an estimate)
+    lengths = list(OpenBench.models.Test.objects.filter(test_mode='SPRT', finished=True, deleted=False).values_list('games', flat=True))
+    lengths = lengths or [t.games + e[0] for t, e in zip(tests, estimates) if e and t.test_mode == 'SPRT']
+    mean_length = sum(lengths) / len(lengths) if lengths else None
+
+    left = 0
+    for test, estimate in zip(tests, estimates):
+        if estimate:
+            left += estimate[0]
+        elif test.test_mode == 'GAMES':
+            left += max(0, test.max_games - test.games)
+        elif test.test_mode == 'SPRT' and mean_length:
+            left += max(mean_length - test.games, 0.1 * mean_length)
+        else:
+            return ''
+
+    return 'Idle in ~%s' % format_duration(left / speed)
