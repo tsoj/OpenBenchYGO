@@ -583,6 +583,7 @@ def update_test(request, machine):
         test.DW     += DW
         test.WW     += WW
         test.games  += games  # Overall
+        test.started = test.started or timezone.now()
 
         # Consider only Crashes or Illegal moves as real errors
         test.error = bool(test.error or crashes or illegals)

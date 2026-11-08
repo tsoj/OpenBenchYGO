@@ -24,6 +24,7 @@ import re
 
 import scipy.stats
 import django.utils.safestring
+import django.utils.timezone
 
 import OpenBench.config
 import OpenBench.models
@@ -347,8 +348,42 @@ def eloDistribution(test):
         parts.append('<text x="%.1f" y="%d" font-size="11" text-anchor="middle" fill="currentColor">%g</text>' % (X(elo), base + 13, elo))
         labels.append('P(Elo &gt; %g) = %.1f%%' % (elo, 100 * p))
 
+    if eta := testEta(test):
+        labels.append(eta)
+
     title = 'Elo distribution (uniform prior): ' + ', '.join(labels)
     return django.utils.safestring.mark_safe(
-        '<figure class="elo-distribution" style="margin: 0.5em 0; color: var(--ygo-ink, currentColor)">'
+        '<figure class="elo-distribution">'
         '<svg viewBox="0 0 %d %d" width="100%%" style="max-width: %dpx; display: block" role="img" aria-label="%s">%s</svg>'
         '<figcaption style="font-size: 0.85em">%s</figcaption></figure>' % (W, H, W, title, ''.join(parts), ' &middot; '.join(labels)))
+
+def testEta(test):
+
+    # "ETA ~ ..." of a running test: the games left (SPRT: the LLR at its rate per game so far to
+    # the bound it moves to; GAMES: to max_games) at the test's speed since its first results.
+    # None if finished, without a start time, or the LLR has no direction yet.
+
+    if test.finished or not test.started or not test.games:
+        return None
+
+    if test.test_mode == 'SPRT':
+        rate = test.currentllr / test.games
+        if abs(rate) < 1e-9:
+            return None
+        bound = test.upperllr if rate > 0 else test.lowerllr
+        left  = max(0.0, (bound - test.currentllr) / rate)
+        towards = 'H1' if rate > 0 else 'H0'
+    elif test.test_mode == 'GAMES':
+        left, towards = max(0, test.max_games - test.games), None
+    else:
+        return None
+
+    seconds = (django.utils.timezone.now() - test.started).total_seconds()
+    if seconds <= 0 or left <= 0:
+        return None
+    eta = left / (test.games / seconds)
+
+    hours = eta / 3600
+    when  = '%.0f min' % (eta / 60) if hours < 1 else '%.1f h' % hours if hours < 48 else '%.0f days' % (hours / 24) if hours < 168 else '> 1 week'
+    return 'ETA ~ %s (~%s games%s, at this test\'s speed so far)' % (
+        when, '{:,}'.format(int(round(left, -2))), ' to ' + towards if towards else '')

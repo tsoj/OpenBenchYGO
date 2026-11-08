@@ -197,7 +197,7 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
 #content .statblock-yellow, #content .statblock-red { background-color: transparent; }
 
 /* The long statblock: an art box */
-#content .long-statblock {
+#content .long-statblock, #content .elo-distribution {
     background: var(--ygo-steel-in);
     color: #d9dde8;
     border: 7px solid;
@@ -208,6 +208,9 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
     font-size: 14px;
     overflow-x: auto;
 }
+#content .elo-distribution { margin: 0.5em 0; padding: 6px 8px; }
+#content .elo-distribution figcaption { font-size: 13px; margin-top: 4px; }
+
 
 /* ---------- Buttons (as ygo.css's buttons) ---------- */
 
