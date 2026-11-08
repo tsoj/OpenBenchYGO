@@ -145,6 +145,11 @@ class Machine(Model):
     info      = JSONField()
     workload  = IntegerField(default=0)
 
+    # Its throughput, for the index's "Idle in": nodes searched per second of a whole workload
+    # (builds, bench and games), averaged over its workloads; when its workload started
+    node_rate        = FloatField(default=0.00)
+    workload_started = DateTimeField(null=True, blank=True)
+
     def __str__(self):
         return '[%d] %s' % (self.id, self.user.username)
 

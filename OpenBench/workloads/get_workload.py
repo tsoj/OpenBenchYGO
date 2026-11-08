@@ -35,6 +35,7 @@ from OpenBench.models import Book, EngineConfig, Result, Test
 from OpenBench.spsa_utils import spsa_workload_assignment_dict
 
 from django.db import transaction
+from django.utils import timezone
 
 def get_workload(request, machine):
 
@@ -49,7 +50,8 @@ def get_workload(request, machine):
     # to avoid re-serializing the (large) info blob on every workload request
     machine.workload = test.id;
     machine.mnps = machine.dev_mnps = machine.base_mnps = 0.00
-    machine.save(update_fields=['workload', 'mnps', 'dev_mnps', 'base_mnps', 'updated'])
+    machine.workload_started = timezone.now()
+    machine.save(update_fields=['workload', 'mnps', 'dev_mnps', 'base_mnps', 'workload_started', 'updated'])
 
     return { 'workload' : workload_to_dictionary(test, result, machine) }
 

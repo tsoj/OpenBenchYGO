@@ -922,9 +922,19 @@ def client_heartbeat(request, machine):
 
 @csrf_exempt
 @verify_worker
-def client_submit_nps_stats(request, _):
+def client_submit_nps_stats(request, machine):
 
     result_id = int(request.POST['result_id'])
+
+    # The machine's throughput: this workload's nodes over its time (since it got the workload),
+    # averaged with the earlier workloads' (half each)
+    if machine.workload_started:
+        seconds = (timezone.now() - machine.workload_started).total_seconds()
+        nodes   = int(request.POST['dev_nodes']) + int(request.POST['base_nodes'])
+        if seconds > 0 and nodes > 0:
+            rate = nodes / seconds
+            machine.node_rate = rate if not machine.node_rate else (machine.node_rate + rate) / 2
+            machine.save(update_fields=['node_rate', 'updated'])
 
     # No risk from concurrent access
     Result.objects.filter(id=result_id).update(

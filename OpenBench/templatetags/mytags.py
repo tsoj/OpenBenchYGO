@@ -25,6 +25,7 @@ import re
 import scipy.stats
 import django.utils.safestring
 import django.utils.timezone
+import django.db.models
 
 import OpenBench.config
 import OpenBench.models
@@ -399,33 +400,66 @@ def testEta(test):
     return 'ETA ~ %s (~%s games%s)' % (
         format_duration(left / speed), '{:,}'.format(int(round(left, -2))), ' to ' + towards if towards else '')
 
+def control_nodes(time_control):
+    # (the nodes per decision of N=X and NpsAdjustedN=X, else None)
+    match = re.match(r'(?:NpsAdjustedN|N)=(\d+)$', time_control or '')
+    return int(match.group(1)) if match else None
+
 def queueEta(tests):
 
-    # "Idle in ~...": when the workers run out of work, the active tests: their games left over the sum of the speeds of the
-    # tests with an estimate (tests that share the workers each have a part of the speed). A test
-    # without an estimate (waiting, or no direction yet): a GAMES test its games left, an SPRT the
-    # mean length of the finished SPRTs (without any: of the active ones' expected lengths) less its
-    # games so far (at least 10% of that mean). Empty without any speed (no estimate).
+    # "Idle in ~...": when the workers run out of the active tests' games (running or waiting):
+    #   - the workers' throughput: the nodes per second of the active machines (Machine.node_rate,
+    #     measured over whole workloads; a machine without one: the others' rate per thread);
+    #   - a test's games left: its ETA's (eta_estimate), faded to the mean SPRT length (finished
+    #     SPRTs; without any, the active ones' expected lengths) less its games while it has few
+    #     games (weight games / (games + mean / 2)); a GAMES test its missing games;
+    #   - a test's nodes per game: its own (its results' NPS stats), else its node limit times the
+    #     nodes per game and node of the measured tests, else the mean of the measured tests.
+    # Empty without a throughput or nodes per game to go by.
 
     tests     = list(tests)
     estimates = [eta_estimate(test) for test in tests]
-    if not (speed := sum(e[2] for e in estimates if e)):
-        return ''
 
-    # (without finished SPRTs: the expected lengths of the active ones with an estimate)
+    machines = list(OpenBench.utils.getRecentMachines())
+    threads  = lambda m: m.info.get('concurrency', 0)
+    measured = [m for m in machines if m.node_rate > 0]
+    if not measured:
+        return ''
+    per_thread = sum(m.node_rate for m in measured) / max(1, sum(threads(m) for m in measured))
+    node_rate  = sum(m.node_rate if m.node_rate > 0 else per_thread * threads(m) for m in machines)
+
+    sums = OpenBench.models.Result.objects.filter(test__in=tests).values('test').annotate(
+        nodes=django.db.models.Sum(django.db.models.F('dev_nodes') + django.db.models.F('base_nodes')),
+        games=django.db.models.Sum('games'))
+    per_game = { row['test'] : row['nodes'] / row['games'] for row in sums if row['nodes'] and row['games'] }
+    if not per_game:
+        return ''
+    measured_tests = [t for t in tests if t.id in per_game]
+    with_limit     = [(t, control_nodes(t.dev_time_control)) for t in measured_tests]
+    with_limit     = [(t, n) for t, n in with_limit if n]
+    per_node       = sum(per_game[t.id] / n for t, n in with_limit) / len(with_limit) if with_limit else None
+    mean_per_game  = sum(per_game.values()) / len(per_game)
+
     lengths = list(OpenBench.models.Test.objects.filter(test_mode='SPRT', finished=True, deleted=False).values_list('games', flat=True))
     lengths = lengths or [t.games + e[0] for t, e in zip(tests, estimates) if e and t.test_mode == 'SPRT']
     mean_length = sum(lengths) / len(lengths) if lengths else None
 
-    left = 0
+    nodes_left = 0
     for test, estimate in zip(tests, estimates):
-        if estimate:
-            left += estimate[0]
-        elif test.test_mode == 'GAMES':
-            left += max(0, test.max_games - test.games)
-        elif test.test_mode == 'SPRT' and mean_length:
-            left += max(mean_length - test.games, 0.1 * mean_length)
-        else:
-            return ''
 
-    return 'Idle in ~%s' % format_duration(left / speed)
+        if test.test_mode == 'GAMES':
+            left = max(0, test.max_games - test.games)
+        elif test.test_mode == 'SPRT' and mean_length:
+            prior  = max(mean_length - test.games, 0.1 * mean_length)
+            weight = test.games / (test.games + mean_length / 2)
+            left   = weight * estimate[0] + (1 - weight) * prior if estimate else prior
+        elif estimate:
+            left = estimate[0]
+        else:
+            continue
+
+        limit = control_nodes(test.dev_time_control)
+        cost  = per_game.get(test.id) or (per_node * limit if per_node and limit else mean_per_game)
+        nodes_left += left * cost
+
+    return 'Idle in ~%s' % format_duration(nodes_left / node_rate)
