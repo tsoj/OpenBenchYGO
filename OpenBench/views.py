@@ -41,7 +41,7 @@ from OpenSite.settings import PROJECT_PATH
 from OpenBench.models import *
 from django.contrib.auth.models import User
 from OpenSite.settings import MEDIA_ROOT, MIN_FREE_DISK
-from OpenBench.templatetags.mytags import queueEta
+import OpenBench.templatetags.mytags
 
 from django.db import transaction
 from django.db.models import F, Q
@@ -280,7 +280,7 @@ def index(request, page=1):
         'completed' : completed[start:end],
         'paging'    : paging,
         'status'    : OpenBench.utils.getMachineStatus(),
-        'eta'       : queueEta(active),
+        'eta'       : OpenBench.templatetags.mytags.queueEta(active),
     }
 
     return render(request, 'index.html', data)
@@ -299,7 +299,7 @@ def user(request, username, page=1):
         'completed' : completed[start:end],
         'paging'    : paging,
         'status'    : OpenBench.utils.getMachineStatus(username),
-        'eta'       : queueEta(active),
+        'eta'       : OpenBench.templatetags.mytags.queueEta(active),
     }
 
     return render(request, 'index.html', data)
