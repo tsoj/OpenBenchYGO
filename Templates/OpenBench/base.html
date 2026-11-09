@@ -11,7 +11,7 @@
         <!-- ygo.css: the theme, before the first paint (dark only when chosen with the attribute) -->
         <script src="{% static 'ygo.css/ygo.js' %}?{{ static_version }}"></script>
 
-        <link rel="icon" type="image/svg+xml" href="{% static 'logo.svg' %}?{{ static_version }}">
+        <link rel="icon" type="image/png" sizes="64x64" href="{% static 'favicon.png' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'style.css' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'base.css' %}?{{ static_version }}">
         <link rel="stylesheet" href="{% static 'form.css' %}?{{ static_version }}">
@@ -108,6 +108,57 @@
                         .forEach(form => delete form.dataset.submitting);
                 }
             });
+
+            // Test lists: a test's comment gets the row height that the statblock gives;
+            // the text that is too long for it gets a smaller font (down to 9px), then is cut
+            function fit_test_info() {
+                const narrow = window.matchMedia('(max-width: 767px)').matches;
+                document.querySelectorAll('.test-list td.test-info > div').forEach(div => {
+                    div.style.fontSize        = '';
+                    div.style.maxHeight       = '';
+                    div.style.display         = '';
+                    div.style.webkitBoxOrient = '';
+                    div.style.webkitLineClamp = '';
+                    const td = div.parentElement;
+                    if (narrow || td.offsetParent === null)
+                        return;
+
+                    div.style.maxHeight = '0';
+                    const style = getComputedStyle(td);
+                    const room  = td.clientHeight - parseFloat(style.paddingTop) - parseFloat(style.paddingBottom);
+                    div.style.maxHeight = room + 'px';
+
+                    let lo = 9, hi = parseFloat(getComputedStyle(div).fontSize);
+                    if (div.scrollHeight <= room)
+                        return;
+                    while (hi - lo > 0.25) {
+                        const size = (lo + hi) / 2;
+                        div.style.fontSize = size + 'px';
+                        if (div.scrollHeight <= room) lo = size; else hi = size;
+                    }
+                    div.style.fontSize = lo + 'px';
+                    if (div.scrollHeight <= room)
+                        return;
+
+                    // Still too long: whole lines only, with an ellipsis
+                    const line = parseFloat(getComputedStyle(div).lineHeight) || 1.2 * lo;
+                    div.style.display         = '-webkit-box';
+                    div.style.webkitBoxOrient = 'vertical';
+                    div.style.webkitLineClamp = Math.max(1, Math.floor(room / line));
+                });
+            }
+
+            {
+                let pending = false;
+                const refit = () => {
+                    if (pending) return;
+                    pending = true;
+                    requestAnimationFrame(() => { pending = false; fit_test_info(); });
+                };
+                document.addEventListener('DOMContentLoaded', refit);
+                window.addEventListener('resize', refit);
+                document.fonts.ready.then(refit);
+            }
 
             function toggle_sidebar() {
                 document.body.classList.toggle('sidebar-open')
