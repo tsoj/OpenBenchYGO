@@ -30,37 +30,26 @@
         {% endblock %}
 
         <script>
+            // Unix times in .timestamp and .datestamp elements: as local dates
+            function format_stamps(root) {
+                const formats = {
+                    timestamp : { year : 'numeric', month : '2-digit', day : '2-digit',
+                                  hour : '2-digit', minute : '2-digit', second : '2-digit', hour12 : false },
+                    datestamp : { month : 'short', day : '2-digit' },
+                };
+                for (const [cls, options] of Object.entries(formats))
+                    root.querySelectorAll('.' + cls).forEach(el => {
+                        el.textContent = new Date(1000 * el.textContent).toLocaleString(undefined, options);
+                    });
+            }
+
             document.addEventListener('DOMContentLoaded', function() {
 
-                {
-                    var timestamps = document.getElementsByClassName('timestamp');
-
-                    var options = {
-                        year   : 'numeric', month  : '2-digit',
-                        day    : '2-digit', hour   : '2-digit',
-                        minute : '2-digit', second : '2-digit',
-                        hour12 : false,
-                    };
-
-                    for (var i = 0; i < timestamps.length; i++) {
-                        var date = new Date(1000 * timestamps[i].textContent);
-                        timestamps[i].textContent = date.toLocaleString(undefined, options);
-                    }
-                }
-
-                {
-                    var datestamps = document.getElementsByClassName('datestamp');
-
-                    var options = {
-                        month  : 'short',
-                        day    : '2-digit',
-                    };
-
-                    for (var i = 0; i < datestamps.length; i++) {
-                        var date = new Date(1000 * datestamps[i].textContent);
-                        datestamps[i].textContent = date.toLocaleString(undefined, options);
-                    }
-                }
+                // (the server's content of the live elements, before the stamps are formatted)
+                document.querySelectorAll('[data-live][id]').forEach(el => {
+                    el.dataset.liveSource = el.innerHTML;
+                });
+                format_stamps(document);
 
                 {
                     const cells = document.querySelectorAll('.engine-options');
@@ -158,6 +147,43 @@
                 document.addEventListener('DOMContentLoaded', refit);
                 window.addEventListener('resize', refit);
                 document.fonts.ready.then(refit);
+            }
+
+            // Live pages: every 15 s (while the tab is visible) the page is fetched again and each
+            // element with data-live (and an id) takes the new content. Not while text in it is
+            // selected. Then a 'live-update' event, for the content that scripts build.
+            {
+                const LIVE_INTERVAL = 15000;
+
+                async function live_update() {
+                    const elements = [...document.querySelectorAll('[data-live][id]')];
+                    if (!elements.length || document.hidden)
+                        return;
+
+                    const response = await fetch(location.href, { cache : 'no-store' });
+                    if (!response.ok || response.redirected)
+                        return;
+                    const fresh = new DOMParser().parseFromString(await response.text(), 'text/html');
+
+                    const selection = window.getSelection();
+                    for (const el of elements) {
+                        const update = fresh.getElementById(el.id);
+                        if (!update || update.innerHTML === el.dataset.liveSource)
+                            continue;
+                        if (!selection.isCollapsed && el.contains(selection.anchorNode))
+                            continue;
+                        el.dataset.liveSource = update.innerHTML;
+                        el.innerHTML = update.innerHTML;
+                        format_stamps(el);
+                    }
+                    fit_test_info();
+                    document.dispatchEvent(new Event('live-update'));
+                }
+
+                setInterval(() => live_update().catch(() => {}), LIVE_INTERVAL);
+                document.addEventListener('visibilitychange', () => {
+                    if (!document.hidden) live_update().catch(() => {});
+                });
             }
 
             function toggle_sidebar() {

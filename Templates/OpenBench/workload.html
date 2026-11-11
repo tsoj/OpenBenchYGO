@@ -13,6 +13,13 @@
         document.addEventListener('DOMContentLoaded', function() {
             fetch_summary({{workload.id}});
         });
+
+        // Live updates: the summary again, and the individual results when they are shown
+        document.addEventListener('live-update', function() {
+            fetch_summary({{workload.id}});
+            if (document.getElementById('results-container').children.length)
+                fetch_results({{workload.id}});
+        });
     </script>
 
 {% endblock %}
@@ -80,7 +87,7 @@
         <!-- Dev vs Base [Git Diff Link] -->
         <h4><a href="{{workload|gitDiffLink}}">{{workload|git_diff_text}}</a></h4>
 
-        <div class="anchor-container">
+        <div class="anchor-container" id="workload-buttons" data-live>
 
             <!-- Approve Button: For Admins, or Cross-approvers -->
             {% if not workload.approved and profile.approver and profile.user.username != workload.author %}
@@ -154,6 +161,7 @@
         {% endif %}
 
         <!-- Elo, (SPRT/LRR if SPRT, otherwise CONF), Games -->
+        <div id="workload-stats" data-live>
         {% if type == "TEST" %}
             <pre class="long-statblock" id="long-statblock">{{workload|longStatBlock|linebreaksbr}}</pre>
             {{workload|eloDistribution}}
@@ -162,6 +170,7 @@
         {% elif type == "DATAGEN" %}
             <pre class="long-statblock" id="long-statblock">{{workload|longStatBlock|linebreaksbr}}</pre>
         {% endif %}
+        </div>
 
         <!-- Forum to modify the Priority, Throughput, or (Tests only) Workload Size -->
         <form method="POST" action="/{{type|lower}}/{{workload.id}}/MODIFY/">
