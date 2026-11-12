@@ -132,6 +132,11 @@
             {% endif %}
         </div>
 
+        <!-- Diff Button: the Dev vs Base diff (as the heading) -->
+        <div class="anchor-container">
+            <a class="mt-1 anchorbutton btn-blue" href="{{workload|gitDiffLink}}">View Diff</a>
+        </div>
+
         <!-- Copy Button: Copy the current results statblock -->
         {% if type == "TEST" or type == "DATAGEN" %}
             <div class="anchor-container">

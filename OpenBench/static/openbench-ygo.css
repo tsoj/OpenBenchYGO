@@ -283,6 +283,7 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
     font-size: 1.6rem;
     color: var(--card-ink);
 }
+#content #actions h4 a:hover { text-decoration: underline; }
 
 /* ---------- Workload page ---------- */
 
