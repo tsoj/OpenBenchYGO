@@ -107,8 +107,11 @@ def longStatBlock(test):
 
     lower, elo, upper = OpenBench.stats.Elo(test.results())
 
+    nlower, nelo, nupper = OpenBench.stats.NormalizedElo(test.results())
+
     lines = [
-        'Elo   | %0.2f +- %0.2f (95%%)' % (elo, max(upper - elo, elo - lower)),
+        'Elo   | %0.2f +- %0.2f logistic, %0.2f +- %0.2f normalized' % (
+            elo, max(upper - elo, elo - lower), nelo, max(nupper - nelo, nelo - nlower)),
         '%-5s | %s Threads=%d Hash=%dMB' % (type_text, timecontrol, threads, hashmb),
     ]
 
@@ -316,25 +319,20 @@ def previous(iterable, index):
 @register.filter
 def eloDistribution(test):
 
-    # An inline SVG: the distribution of the true Elo (uniform prior, as the Elo line of the stat
-    # block), with the SPRT bounds (or 0) and the probabilities above them. Empty without games.
+    # An inline SVG: the distribution of the true normalized Elo (uniform prior, as the normalized
+    # Elo of the stat block), with the SPRT bounds (or 0) and the probabilities above them. Empty
+    # without games.
 
-    if not (posterior := OpenBench.stats.EloPosterior(test.results())):
+    if not (posterior := OpenBench.stats.NormalizedEloPosterior(test.results())):
         return ''
-    mu, sd = posterior
+    nelo, sd = posterior
 
-    lo = OpenBench.stats.logistic_elo(max(mu - 4 * sd, 1e-3))
-    hi = OpenBench.stats.logistic_elo(min(mu + 4 * sd, 1 - 1e-3))
-    marks = [test.elolower, test.eloupper] if test.test_mode == 'SPRT' else [0.0]
-    lo, hi = min([lo] + marks) - 1, max([hi] + marks) + 1
+    marks  = [test.elolower, test.eloupper] if test.test_mode == 'SPRT' else [0.0]
+    lo, hi = min([nelo - 4 * sd] + marks) - 1, max([nelo + 4 * sd] + marks) + 1
 
-    # (the density over Elo: the score's normal density times d score / d Elo)
     W, H, top, base = 400, 120, 8, 96
-    def density(elo):
-        s = OpenBench.stats.logistic_score(elo)
-        return scipy.stats.norm.pdf((s - mu) / sd) / sd * s * (1 - s) * math.log(10) / 400
     xs   = [lo + (hi - lo) * i / 200 for i in range(201)]
-    ys   = [density(x) for x in xs]
+    ys   = [scipy.stats.norm.pdf((x - nelo) / sd) for x in xs]
     peak = max(ys)
     X    = lambda elo: (elo - lo) / (hi - lo) * W
     Y    = lambda y: base - y / peak * (base - top)
@@ -344,15 +342,15 @@ def eloDistribution(test):
              '<line x1="0" y1="%d" x2="%d" y2="%d" stroke="currentColor" stroke-opacity="0.5"/>' % (base, W, base)]
     labels = []
     for elo in marks:
-        p = OpenBench.stats.prob_elo_above(posterior, elo)
+        p = 1 - scipy.stats.norm.cdf((elo - nelo) / sd)
         parts.append('<line x1="%.1f" y1="%d" x2="%.1f" y2="%d" stroke="currentColor" stroke-dasharray="3 3"/>' % (X(elo), top, X(elo), base))
         parts.append('<text x="%.1f" y="%d" font-size="11" text-anchor="middle" fill="currentColor">%g</text>' % (X(elo), base + 13, elo))
-        labels.append('P(Elo &gt; %g) = %.1f%%' % (elo, 100 * p))
+        labels.append('P(nElo &gt; %g) = %.1f%%' % (elo, 100 * p))
 
     if eta := testEta(test):
         labels.append(eta)
 
-    title = 'Elo distribution (uniform prior): ' + ', '.join(labels)
+    title = 'Normalized Elo distribution (uniform prior): ' + ', '.join(labels)
     return django.utils.safestring.mark_safe(
         '<figure class="elo-distribution">'
         '<svg viewBox="0 0 %d %d" width="100%%" style="max-width: %dpx; display: block" role="img" aria-label="%s">%s</svg>'

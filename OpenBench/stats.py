@@ -158,10 +158,12 @@ def MLE_tvalue(pdfhat, ref, s):
     return pdf_MLE
 
 
-def EloPosterior(results):
+def NormalizedEloPosterior(results):
 
-    # The distribution of the true score with a uniform prior: normal, mean mu and standard
-    # deviation sd (of the mean of the outcomes: games or game pairs), as Elo(). None without games.
+    # Normalized Elo, as the pentanomial SPRT measures it: the mean score's distance from 0.5
+    # over the spread of the outcomes (games, or game pairs over sqrt(2) for the Elo per game),
+    # times 800 / ln(10). Returns the estimate and its standard deviation, with a uniform prior the
+    # posterior's (normal). None without games or without spread.
 
     if not (N := sum(results)) or N == 1:
         return None
@@ -169,14 +171,25 @@ def EloPosterior(results):
     div = len(results) - 1
     mu  = sum((f / div) * results[f] for f in range(len(results))) / N
     var = sum(((f / div) - mu)**2 * results[f] for f in range(len(results))) / N
-    return (mu, math.sqrt(var / N)) if var > 0 else None
+    if var <= 0:
+        return None
 
-def logistic_score(elo):
-    return 1 / (1 + 10 ** (-elo / 400))
+    games_per_outcome  = 2 if len(results) == 5 else 1
+    nelo_divided_by_nt = 800 / math.log(10)
+    nelo = nelo_divided_by_nt * (mu - 0.5) / math.sqrt(games_per_outcome * var)
+    sd   = nelo_divided_by_nt / math.sqrt(games_per_outcome * N)
+    return nelo, sd
 
-def prob_elo_above(posterior, elo):
-    mu, sd = posterior
-    return 1 - scipy.stats.norm.cdf((logistic_score(elo) - mu) / sd)
+def NormalizedElo(results):
+
+    # (lower, nelo, upper): the 95% interval of NormalizedEloPosterior, as Elo(). Zeros without one.
+
+    if not (posterior := NormalizedEloPosterior(results)):
+        return (0.00, 0.00, 0.00)
+
+    nelo, sd = posterior
+    margin   = scipy.stats.t.ppf(0.975, sum(results) - 1) * sd
+    return nelo - margin, nelo, nelo + margin
 
 def logistic_elo(x):
     x = min(max(x, 1e-3), 1-1e-3)
