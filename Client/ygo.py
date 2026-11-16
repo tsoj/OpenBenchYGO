@@ -38,6 +38,9 @@
 #   - The match runner is ygo-arbiter (the base engine's), not fastchess. An opening
 #     is played twice, the seats swapped: a game pair. The arbiter prints its
 #     cumulative pentanomial after each pair; the Client reports the differences.
+#   - The other engine options (not Threads, Hash or the Allow options) are bot options,
+#     set by the arbiter (--option); SPSA's parameters too: an int parameter is a spin
+#     option of the bot, a float parameter a float option.
 #   - Books are JSON lines (one opening per line); each runner plays its slice.
 #   - Instead of PGNs, the arbiter's records (one JSON line per game).
 
@@ -79,6 +82,10 @@ RULES = (
     ((CORE,), 'AllowCoreMismatch=true'),
     (('external/CardScripts', 'external/BabelCDB'), 'AllowCardsMismatch=true'),
 )
+
+# The engine options that OpenBench and this client use themselves; the other options are the bot's
+# (ygo-arbiter --option)
+CLIENT_OPTIONS = ('Threads', 'Hash') + tuple(allow.split('=')[0] for _, allow in RULES)
 
 # The arbiter's build folder (a copy of the ygopro-core-rust source)
 ARBITER_SRC = 'arbiter-src'
@@ -354,11 +361,33 @@ def search_settings(dev_control, base_control, scale_factor):
 def bot_command(name, env):
     return ' '.join(['env'] + ['%s=%s' % kv for kv in sorted(env.items())] + [os.path.join(os.path.abspath('Engines'), name), 'alphabeta'])
 
-def runner_command(workload, dev_name, base_name, scale_factor, book_path, records_path):
+def bot_options(workload, branch, runner_idx):
+
+    # [(name, value)] of the bot options of branch ('dev' or 'base'): its engine options except
+    # CLIENT_OPTIONS, then for SPSA the runner's values of the tuned parameters (an int parameter
+    # is a spin option of the bot, a float parameter a float option)
+
+    options = []
+    for option in workload['test'][branch]['options'].split():
+        name, _, value = option.partition('=')
+        if name not in CLIENT_OPTIONS:
+            options.append((name, value))
+
+    if workload['test']['type'] == 'SPSA':
+        for name, param in sorted(workload['spsa'].items(), key=lambda kv: kv[1]['index']):
+            options.append((name, str(param[branch][runner_idx])))
+
+    return options
+
+def runner_command(workload, dev_name, base_name, scale_factor, book_path, records_path, runner_idx):
 
     test = workload['test']
     flags, env = search_settings(test['dev']['time_control'], test['base']['time_control'], scale_factor)
     arbiter    = arbiter_path(core_commit(base_name))
+
+    for branch, bot in (('dev', DEV), ('base', BASE)):
+        for name, value in bot_options(workload, branch, runner_idx):
+            flags += ['--option', '%s.%s=%s' % (bot, name, value)]
 
     return [arbiter,
         '--bot', '%s=%s' % (DEV , bot_command(dev_name , env)),

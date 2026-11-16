@@ -62,7 +62,7 @@ from client import try_forever
 
 ## Basic configuration of the Client. These timeouts can be changed at will
 
-CLIENT_VERSION   = 56 # Client version to send to the Server
+CLIENT_VERSION   = 57 # Client version to send to the Server
 TIMEOUT_HTTP     = 30 # Timeout in seconds for HTTP requests
 TIMEOUT_ERROR    = 60 # Timeout in seconds when any errors are thrown
 TIMEOUT_WORKLOAD = 60 # Timeout in seconds between workload requests
@@ -1324,7 +1324,7 @@ def build_runner_command(config, dev_cmd, base_cmd, scale_factor, timestamp, run
     ygo.book_slice(config.workload['test']['book']['name'], config.workload['test']['book_seed'], start, rounds, book)
 
     records = MatchRunner.records_name(config, timestamp, runner_idx)
-    return ygo.runner_command(config.workload, dev_cmd, base_cmd, scale_factor, book, records)
+    return ygo.runner_command(config.workload, dev_cmd, base_cmd, scale_factor, book, records, runner_idx)
 
 def run_and_parse_runner(config, command, env, runner_idx, results_queue, abort_flag, processes, errors):
 
