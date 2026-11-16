@@ -375,7 +375,7 @@ def bot_options(workload, branch, runner_idx):
 
     if workload['test']['type'] == 'SPSA':
         for name, param in sorted(workload['spsa'].items(), key=lambda kv: kv[1]['index']):
-            options.append((name, str(param[branch][runner_idx])))
+            options.append((name, param[branch][runner_idx]))
 
     return options
 
@@ -387,7 +387,7 @@ def runner_command(workload, dev_name, base_name, scale_factor, book_path, recor
 
     for branch, bot in (('dev', DEV), ('base', BASE)):
         for name, value in bot_options(workload, branch, runner_idx):
-            flags += ['--option', '%s.%s=%s' % (bot, name, value)]
+            flags += ['--option', '%s.%s=%s' % (bot, name, str(value))]
 
     return [arbiter,
         '--bot', '%s=%s' % (DEV , bot_command(dev_name , env)),
@@ -467,17 +467,21 @@ def compact_label(label):
             out[key + '_ms'] = round(label[key] * 1000)
     return out
 
-def compress_records(records_paths, mode):
+def compress_records(workload, records_paths, mode):
 
     # COMPACT: the records without labels (the decks, seeds and responses replay a game),
-    # about 0.55 KB per game; VERBOSE: with rounded labels, about 1.6 KB per game
+    # about 0.55 KB per game; VERBOSE: with rounded labels, about 1.6 KB per game. Both add
+    # "bot_options": each engine's bot options (the runner's SPSA values too), by engine name
+    # as in "agents"; records_paths are by runner index
 
     lines = []
-    for path in records_paths:
+    for runner_idx, path in enumerate(records_paths):
         if not os.path.exists(path):
             continue
+        options = { bot : dict(bot_options(workload, branch, runner_idx)) for branch, bot in (('dev', DEV), ('base', BASE)) }
         for line in open(path):
             record = json.loads(line)
+            record['bot_options'] = options
             labels = record.pop('labels', [])
             if mode == 'VERBOSE':
                 record['labels'] = [compact_label(label) for label in labels]

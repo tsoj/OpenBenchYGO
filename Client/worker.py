@@ -62,7 +62,7 @@ from client import try_forever
 
 ## Basic configuration of the Client. These timeouts can be changed at will
 
-CLIENT_VERSION   = 57 # Client version to send to the Server
+CLIENT_VERSION   = 58 # Client version to send to the Server
 TIMEOUT_HTTP     = 30 # Timeout in seconds for HTTP requests
 TIMEOUT_ERROR    = 60 # Timeout in seconds when any errors are thrown
 TIMEOUT_WORKLOAD = 60 # Timeout in seconds between workload requests
@@ -1193,7 +1193,7 @@ def complete_workload(config):
 
         # Upload the records (instead of PGNs) if requested
         if config.workload['test']['upload_pgns'] != 'FALSE':
-            records_data = ygo.compress_records(records, config.workload['test']['upload_pgns'])
+            records_data = ygo.compress_records(config.workload, records, config.workload['test']['upload_pgns'])
             report_until_received(ServerReporter.report_pgn, config, records_data)
 
 def report_until_received(report, *args):
