@@ -1151,7 +1151,10 @@ def api_spsa(request, workload_id, query):
     if query == 'perturbation':
         return api_response({ 'perturbation' : OpenBench.spsa_utils.spsa_workload_assignment_dict(workload, 4) })
 
-    valid_endpoints = [ 'inputs', 'outputs', 'digest', 'perturbation' ]
+    if query == 'history':
+        return api_response({ 'history' : OpenBench.spsa_utils.spsa_history(workload) })
+
+    valid_endpoints = [ 'inputs', 'outputs', 'digest', 'perturbation', 'history' ]
     return api_response({ 'error' : 'Valid /query/ endpoints are: [ %s ]' % (', '.join(valid_endpoints)) })
 
 @csrf_exempt

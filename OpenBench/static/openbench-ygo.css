@@ -379,3 +379,32 @@ a:link, a:visited, a:hover, a:active { color: var(--ygo-link); }   /* (style.css
 
 /* the ETA of all active tests: at the right end of the Active heading */
 #content .queue-eta { float: right; font-weight: normal; }
+
+/* ---------- SPSA history: small charts on the text box ---------- */
+
+#spsa-history table { width: 100%; }
+#spsa-history-caption { color: var(--ygo-ink-soft); font-size: 0.85rem; padding: 4px 8px; }
+#spsa-history-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+    gap: 10px 16px;
+    padding: 4px 8px 10px;
+}
+.spsa-chart { color: var(--ygo-ink); font-size: 0.8rem; min-width: 0; }
+.spsa-chart-title { display: flex; justify-content: space-between; gap: 6px; }
+.spsa-chart-title span:first-child { font-weight: bold; overflow: hidden; text-overflow: ellipsis; }
+.spsa-chart-value { color: var(--ygo-ink-soft); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.spsa-chart-body { display: flex; gap: 4px; }
+.spsa-chart-body svg {
+    flex: 1; min-width: 0; height: 80px;
+    border-left: 1px solid var(--ygo-rule); border-bottom: 1px solid var(--ygo-rule);
+    overflow: visible; cursor: crosshair;
+}
+.spsa-chart-axis {
+    display: flex; flex-direction: column; justify-content: space-between;
+    color: var(--ygo-ink-soft); font-size: 0.7rem; font-variant-numeric: tabular-nums;
+}
+.spsa-line  { fill: none; stroke: var(--ygo-link); stroke-width: 2; stroke-linejoin: round; vector-effect: non-scaling-stroke; }
+.spsa-start { stroke: var(--ygo-ink-soft); stroke-width: 1; stroke-dasharray: 4 3; vector-effect: non-scaling-stroke; }
+.spsa-cross { stroke: var(--ygo-ink-soft); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.spsa-dot   { stroke: var(--ygo-link); stroke-width: 8; stroke-linecap: round; vector-effect: non-scaling-stroke; }

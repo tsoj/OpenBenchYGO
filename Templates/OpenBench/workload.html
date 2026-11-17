@@ -12,6 +12,7 @@
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             fetch_summary({{workload.id}});
+            {% if type == "TUNE" %}fetch_spsa_history({{workload.id}});{% endif %}
         });
 
         // Live updates: the summary again, and the individual results when they are shown
@@ -19,6 +20,7 @@
             fetch_summary({{workload.id}});
             if (document.getElementById('results-container').children.length)
                 fetch_results({{workload.id}});
+            {% if type == "TUNE" %}fetch_spsa_history({{workload.id}});{% endif %}
         });
     </script>
 
@@ -243,6 +245,19 @@
                 <tbody id="spsa-digest-body-container" style="display: none;">
                     <!-- Dynamically created -->
                 </tbody>
+            </table>
+        </div>
+    {% endif %}
+
+    <!-- SPSA history, for Tunes: the parameters' values over the iterations -->
+    {% if type == "TUNE" %}
+        <div id="spsa-history" class="w-100 mt-3" style="float:left;">
+            <table class="stripes wrappable">
+                <thead><tr class="table-header"><th>SPSA History</th></tr></thead>
+                <tbody><tr><td style="padding: 0;">
+                    <div id="spsa-history-caption"></div>
+                    <div id="spsa-history-grid"></div>
+                </td></tr></tbody>
             </table>
         </div>
     {% endif %}

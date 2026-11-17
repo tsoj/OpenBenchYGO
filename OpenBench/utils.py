@@ -45,6 +45,7 @@ from OpenBench.stats import TrinomialSPRT, PentanomialSPRT
 
 import OpenBench.views
 import OpenBench.model_utils
+import OpenBench.spsa_utils
 
 
 class TimeControl(object):
@@ -624,6 +625,12 @@ def update_test(request, machine):
 
             # Bulk update to fire off all the .save()s
             SPSAParameter.objects.bulk_update(parameters, ['value'])
+
+            # A history snapshot each time the games pass a multiple of the snapshot interval
+            interval = OpenBench.spsa_utils.spsa_history_interval(test.spsa_run)
+            if (test.games - games) // interval != test.games // interval:
+                SPSAHistory.objects.create(
+                    spsa_run=test.spsa_run, games=test.games, values=[p.value for p in parameters])
 
             test.finished = test.games >= 2 * test.spsa_run.pairs_per * test.spsa_run.iterations
 

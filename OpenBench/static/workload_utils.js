@@ -212,3 +212,102 @@ async function fetch_spsa_digest(workload_id) {
     const buttonContainer = document.getElementById('spsa-digest-button-container')
     buttonContainer.style.display = 'none'
 }
+
+// SPSA history: one small chart per parameter, its value over the iterations (x: 0 to the
+// tune's iterations; y: the range of the values, the start included). Hover: the values at
+// that iteration in every chart.
+async function fetch_spsa_history(workload_id) {
+    const resp = await fetch(`/api/spsa/${workload_id}/history/`)
+    const data = await resp.json()
+    if (data.history)
+        draw_spsa_history(data.history)
+}
+
+function draw_spsa_history(h) {
+
+    const W = 300, H = 90
+    const svg_ns    = 'http://www.w3.org/2000/svg'
+    const grid      = document.getElementById('spsa-history-grid')
+    const caption   = document.getElementById('spsa-history-caption')
+    const per_iter  = 2 * h.pairs_per
+    const iters     = h.points.map(p => p.games / per_iter)
+    const x_of      = it => W * it / h.iterations
+    const fmt       = (p, v) => p.is_float ? v.toPrecision(4) : v.toFixed(2)
+
+    const make = (tag, attrs) => {
+        const e = document.createElementNS(svg_ns, tag)
+        for (const k in attrs) e.setAttribute(k, attrs[k])
+        return e
+    }
+
+    grid.innerHTML = ''
+    const charts = h.params.map((p, i) => {
+
+        const values = h.points.map(pt => pt.values[i])
+        let lo = Math.min(p.start, ...values), hi = Math.max(p.start, ...values)
+        if (hi - lo < 1e-9) { lo -= 0.5; hi += 0.5 }
+        const pad  = (hi - lo) * 0.08
+        lo -= pad; hi += pad
+        const y_of = v => H * (hi - v) / (hi - lo)
+
+        const cell  = document.createElement('div')
+        cell.className = 'spsa-chart'
+        const title = document.createElement('div')
+        title.className = 'spsa-chart-title'
+        const name  = document.createElement('span')
+        name.textContent = p.name
+        const value = document.createElement('span')
+        value.className = 'spsa-chart-value'
+        title.append(name, value)
+
+        const svg = make('svg', { viewBox: `0 0 ${W} ${H}`, preserveAspectRatio: 'none' })
+        svg.append(make('line', { class: 'spsa-start', x1: 0, x2: W, y1: y_of(p.start), y2: y_of(p.start) }))
+        svg.append(make('polyline', { class: 'spsa-line',
+            points: values.map((v, j) => `${x_of(iters[j]).toFixed(2)},${y_of(v).toFixed(2)}`).join(' ') }))
+        const cross = make('line', { class: 'spsa-cross', y1: 0, y2: H, visibility: 'hidden' })
+        const dot   = make('line', { class: 'spsa-dot', visibility: 'hidden' })
+        svg.append(cross, dot)
+
+        const axis = document.createElement('div')
+        axis.className = 'spsa-chart-axis'
+        axis.innerHTML = `<span>${fmt(p, hi - pad)}</span><span>${fmt(p, lo + pad)}</span>`
+
+        const body = document.createElement('div')
+        body.className = 'spsa-chart-body'
+        body.append(svg, axis)
+        cell.append(title, body)
+        grid.append(cell)
+
+        return { p, values, value, cross, dot, y_of }
+    })
+
+    const show = j => {
+        const at = j === null ? h.points.length - 1 : j
+        for (const c of charts) {
+            const v = c.values[at]
+            c.value.textContent = `${fmt(c.p, v)} (start ${fmt(c.p, c.p.start)})`
+            const x = x_of(iters[at]), y = c.y_of(v)
+            for (const [e, a] of [[c.cross, { x1: x, x2: x }], [c.dot, { x1: x, x2: x, y1: y, y2: y }]]) {
+                for (const k in a) e.setAttribute(k, a[k])
+                e.setAttribute('visibility', j === null ? 'hidden' : 'visible')
+            }
+        }
+        const it = Math.round(iters[at])
+        caption.textContent = j === null
+            ? `Iteration ${it} of ${h.iterations} (${h.points.length - 1} snapshots). Dashed: start value. Hover for the values at an iteration.`
+            : `Iteration ${it} of ${h.iterations} (${h.points[at].games} games)`
+    }
+
+    // The nearest snapshot to the pointer, from any chart
+    grid.onpointermove = ev => {
+        const svg = ev.target.closest('svg')
+        if (!svg) return show(null)
+        const r  = svg.getBoundingClientRect()
+        const it = h.iterations * (ev.clientX - r.left) / r.width
+        let best = 0
+        iters.forEach((x, j) => { if (Math.abs(x - it) < Math.abs(iters[best] - it)) best = j })
+        show(best)
+    }
+    grid.onpointerleave = () => show(null)
+    show(null)
+}

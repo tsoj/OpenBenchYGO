@@ -20,7 +20,7 @@
 
 import numpy as np
 
-from OpenBench.models import SPSARun, SPSAParameter
+from OpenBench.models import SPSARun, SPSAParameter, SPSAHistory
 
 def spsa_original_input(workload):
 
@@ -88,6 +88,33 @@ def create_spsa_run(workload, request):
 
     SPSAParameter.objects.bulk_create(params)
     return spsa_run
+
+def spsa_history_interval(spsa_run):
+    # Games between two history snapshots: about 500 snapshots over the whole tune
+    return max(1, 2 * spsa_run.pairs_per * spsa_run.iterations // 500)
+
+def spsa_history(workload):
+
+    # The parameters, and their values over the games; the start values are the first point
+    spsa_run = workload.spsa_run
+    params   = list(spsa_run.parameters.order_by('index'))
+    points   = [{ 'games' : 0, 'values' : [p.start for p in params] }]
+    points  += [{ 'games' : h.games, 'values' : h.values } for h in spsa_run.history.order_by('games')]
+
+    return {
+        'pairs_per'  : spsa_run.pairs_per,
+        'iterations' : spsa_run.iterations,
+        'games'      : workload.games,
+        'params'     : [{
+            'name'     : p.name,
+            'is_float' : p.is_float,
+            'min'      : p.min_value,
+            'max'      : p.max_value,
+            'start'    : p.start,
+            'value'    : p.value,
+        } for p in params],
+        'points'     : points,
+    }
 
 def spsa_param_digest(workload):
 

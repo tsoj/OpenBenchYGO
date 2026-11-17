@@ -392,3 +392,10 @@ class SPSAParameter(Model):
 
     c_value   = FloatField() # Constants pre-computed for speed
     a_value   = FloatField()
+
+class SPSAHistory(Model):
+
+    # The parameters' values after a number of games (about 500 snapshots per tune)
+    spsa_run = ForeignKey(SPSARun, on_delete=CASCADE, related_name='history')
+    games    = IntegerField()
+    values   = JSONField() # In the parameters' index order
